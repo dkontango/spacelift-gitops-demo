@@ -21,11 +21,51 @@ resource "aws_iam_openid_connect_provider" "spacelift" {
   thumbprint_list = var.oidc_thumbprints
 }
 
-# Trust policy: allow Spacelift's OIDC provider to assume this role, but ONLY
-# for tokens whose aud matches our account and whose sub matches our stacks.
-# sub format: space:<space>:stack:<stack>:run_type:<type>:scope:<read|write>
+# Trust policy — allows Spacelift to assume this role two ways, both keyless
+# (no static access keys are ever stored):
+#
+#   1. sts:AssumeRole + ExternalId (public shared workers). Spacelift's own AWS
+#      account assumes the role, scoped by an ExternalId unique to this account
+#      (<account>@<stack>...). This is the method the free-tier public worker
+#      uses and what Spacelift validates on integration attach.
+#   2. sts:AssumeRoleWithWebIdentity (OIDC, private workers / web identity).
+#      Retained so the same role works if a private worker pool is added later.
 data "aws_iam_policy_document" "trust" {
+  # 1. Public-worker AssumeRole with ExternalId (the documented Spacelift
+  #    pattern for us.spacelift.io). ExternalId is scoped to this account.
   statement {
+    sid     = "SpaceliftAssumeRole"
+    effect  = "Allow"
+    actions = ["sts:AssumeRole"]
+
+    principals {
+      type        = "AWS"
+      identifiers = [var.spacelift_aws_account_id]
+    }
+
+    condition {
+      test     = "StringLike"
+      variable = "sts:ExternalId"
+      values   = ["${var.spacelift_account_name}@*"]
+    }
+  }
+
+  # 2. TagSession — required as its OWN statement (no ExternalId condition) so
+  #    AWS allows the session tags Spacelift attaches during AssumeRole.
+  statement {
+    sid     = "SpaceliftTagSession"
+    effect  = "Allow"
+    actions = ["sts:TagSession"]
+
+    principals {
+      type        = "AWS"
+      identifiers = [var.spacelift_aws_account_id]
+    }
+  }
+
+  # 3. OIDC web identity (kept for a future private-worker / federated setup).
+  statement {
+    sid     = "SpaceliftWebIdentity"
     effect  = "Allow"
     actions = ["sts:AssumeRoleWithWebIdentity", "sts:TagSession"]
 
@@ -40,8 +80,6 @@ data "aws_iam_policy_document" "trust" {
       values   = [local.spacelift_issuer_url]
     }
 
-    # Restrict to this account's stacks. Tighten to specific stack IDs once they
-    # exist (e.g. space:*:stack:spacelift-gitops-demo-*:run_type:*:scope:*).
     condition {
       test     = "StringLike"
       variable = "${local.spacelift_issuer_host}:sub"

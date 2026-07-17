@@ -13,6 +13,21 @@ variable "spacelift_issuer_host" {
   type = string
 }
 
+variable "spacelift_account_name" {
+  description = "Spacelift account name (the subdomain), used in the ExternalId condition. This build: dkontango."
+  type        = string
+}
+
+variable "spacelift_aws_account_id" {
+  description = <<-EOT
+    AWS account ID of Spacelift's shared public workers, the principal that
+    assumes the role via sts:AssumeRole. Shown in the integration's trust-policy
+    example in the Spacelift UI. For this account the dialog showed 577638371743.
+  EOT
+  type    = string
+  default = "577638371743"
+}
+
 variable "role_name" {
   description = "Name of the IAM role Spacelift will assume via OIDC."
   type        = string
