@@ -1,0 +1,6 @@
+# Copy to terraform.tfvars and fill in. terraform.tfvars is gitignored.
+# spacelift_account is the subdomain in <account>.app.spacelift.io
+spacelift_account = "your-account"
+aws_region        = "us-east-1"
+# Optional: tighten once stack IDs exist, e.g.
+# allowed_sub = "space:*:stack:spacelift-gitops-demo-dev:run_type:*:scope:*"

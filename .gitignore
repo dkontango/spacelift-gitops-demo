@@ -1,0 +1,15 @@
+# OpenTofu / Terraform
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+crash.log
+crash.*.log
+.terraform.lock.hcl
+
+# Credentials — never commit
+.aws/
+*.pem
+*_key
+*_secret
