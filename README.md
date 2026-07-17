@@ -13,6 +13,12 @@ policies** as guardrails and **keyless OIDC** for AWS credentials.
 4. Approve and merge the PR.
 5. **Spacelift previews and deploys** the change on merge to `main`.
 
+> **How this was built.** This environment was set up by directing an AI coding
+> agent through the whole process — accounts, IaC, policies, and clicking
+> through the AWS and Spacelift consoles. It simulates onboarding to Spacelift
+> as an engineer with an AI agent, and the real blockers we hit are written up
+> honestly in [`docs/build-journey.md`](docs/build-journey.md).
+
 Plus, beyond the ask:
 
 - **Policies (OPA):** a Plan policy that **blocks public S3 buckets** in the PR
@@ -58,6 +64,7 @@ Plus, beyond the ask:
 | [`docs/troubleshooting-aws-credentials.md`](docs/troubleshooting-aws-credentials.md) | **Deliverable:** how to fix `no valid credential sources for Terraform AWS Provider`. |
 | [`docs/recording-script.md`](docs/recording-script.md) | Scene-by-scene script for the demo video. |
 | [`docs/spacelift-setup.md`](docs/spacelift-setup.md) | Reproducible setup runbook (account, stacks, OIDC, policies). |
+| [`docs/build-journey.md`](docs/build-journey.md) | **Honest build log** — how this was set up (AI-agent-driven), the real blockers hit, and the SE takeaways. |
 
 ## Guardrails at a glance
 
