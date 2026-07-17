@@ -24,3 +24,8 @@ resource "null_resource" "app" {
     tags       = jsonencode(local.common_tags)
   }
 }
+
+# Added per the Spacelift tutorial, alongside the random_pet resource. This data
+# source forces the run to authenticate to AWS — so it will exercise (and prove)
+# the AWS cloud integration on this stack, surfacing the account id as an output.
+data "aws_caller_identity" "current" {}
