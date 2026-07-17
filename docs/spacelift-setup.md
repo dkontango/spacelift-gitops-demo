@@ -38,6 +38,15 @@ Outputs (this build):
 
 Keep `role_arn` — it goes into Spacelift in step 3.
 
+**Tutorial-exact role (optional).** Spacelift's getting-started tutorial
+prescribes a broader role (AmazonS3FullAccess + AmazonEC2FullAccess, named
+`spacelift-orbit-labs-role`). That exact role is codified separately in
+[`bootstrap-tutorial-role/`](../bootstrap-tutorial-role) and can be applied the
+same way. This repo ships both so the divergence between "follow the tutorial"
+and "least privilege" is visible — see
+[build-journey.md](build-journey.md#where-the-ai-flow-diverged-from-spacelifts-tutorial-honest-note).
+The demo uses the least-privilege role from `bootstrap/`.
+
 ## 2. Connect the VCS
 
 **GitHub (drives the required flow).** In Spacelift → Source control → GitHub →

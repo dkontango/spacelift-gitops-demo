@@ -176,6 +176,40 @@ real cloud second (once you've done the one-time trust setup)*. We now lead the
 demo that way. The IAM/trust friction is real and worth smoothing — but it
 should never be the *first* thing a prospect hits, and it doesn't have to be.
 
+## Where the AI flow diverged from Spacelift's tutorial (honest note)
+
+Spacelift's own getting-started tutorial prescribes a **specific** IAM role
+setup. Our AI-driven flow did **not** follow it — worth calling out plainly:
+
+| Tutorial instruction | What the AI flow did |
+|---|---|
+| Attach managed policies **AmazonS3FullAccess** + **AmazonEC2FullAccess** | Wrote a **custom inline policy**, `s3:*` scoped to `spacelift-gitops-demo-*` buckets only — **no EC2**, no account-wide S3 |
+| Name the role **`spacelift-orbit-labs-role`** | Named it **`spacelift-gitops-demo`** |
+| Description: **"Role for Spacelift to manage AWS infrastructure"** | No matching description (tags only) |
+| (Tutorial assumes the trust relationship is already set) | Built the trust policy from scratch in OpenTofu — and hit the trust-relationship blocker described above |
+
+This divergence is itself an interesting SE observation. The tutorial trades
+**security for simplicity** — `AmazonEC2FullAccess` + `AmazonS3FullAccess` are
+broad, wide-open-on-two-services managed policies that minimize first-run
+friction. The AI agent did the opposite: it reached for **least privilege**,
+scoping the role to exactly the buckets this demo manages. Both "work," but they
+represent opposite security postures, and the agent's instinct pushed *away*
+from the prescribed tutorial toward a tighter policy.
+
+Neither is simply "right" — the tutorial is optimizing for a fast, unblocked
+first run; the least-privilege version is what you'd actually want in a real
+account. For completeness and honesty, this repo now contains **both**: the
+verified least-privilege role (`bootstrap/`, `spacelift-gitops-demo`) and the
+tutorial-exact role (`bootstrap-tutorial-role/`, `spacelift-orbit-labs-role`
+with the two managed policies and the prescribed description), so the divergence
+is visible rather than hidden.
+
+**SE takeaway:** an AI agent following "good practice" will quietly deviate from
+a prescriptive tutorial. That's usually desirable, but it means tutorials and
+guardrail-policies should either state the intended posture explicitly or expect
+(and validate) tighter variations. It also means "did the user follow the
+tutorial?" and "did the user end up secure?" can have different answers.
+
 ## Honest assessment of the experience
 
 **What was genuinely smooth**
