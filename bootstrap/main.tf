@@ -6,7 +6,10 @@
 # demo showcases (and the "right answer" to the troubleshooting question).
 
 locals {
-  spacelift_issuer_host = "${var.spacelift_account}.app.spacelift.io"
+  # Full issuer host, e.g. dkontango.app.us.spacelift.io (US region) or
+  # <account>.app.spacelift.io (EU). Passed in directly to avoid guessing the
+  # regional suffix.
+  spacelift_issuer_host = var.spacelift_issuer_host
   spacelift_issuer_url  = "https://${local.spacelift_issuer_host}"
 }
 

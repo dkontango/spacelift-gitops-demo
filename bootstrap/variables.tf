@@ -4,9 +4,13 @@ variable "aws_region" {
   default     = "us-east-1"
 }
 
-variable "spacelift_account" {
-  description = "Spacelift account subdomain, i.e. the <account> in <account>.app.spacelift.io."
-  type        = string
+variable "spacelift_issuer_host" {
+  description = <<-EOT
+    Full Spacelift OIDC issuer host (no scheme). US region:
+    <account>.app.us.spacelift.io ; EU region: <account>.app.spacelift.io.
+    For this account: dkontango.app.us.spacelift.io
+  EOT
+  type = string
 }
 
 variable "role_name" {
