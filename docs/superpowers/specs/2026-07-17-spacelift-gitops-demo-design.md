@@ -39,7 +39,8 @@ Spacelift support contact allowed.
 | Cloud target | **AWS S3 buckets** | Free-tier friendly, fast apply, and the S3 public-access setting is the perfect hook for a Plan policy. Keeps the demo coherent with the AWS troubleshooting question. |
 | AWS credentials | **Spacelift AWS Cloud Integration + OIDC dynamic credentials** | Keyless, short-lived STS creds via IAM role trust. No secret stored anywhere. This is the best-practice "right answer" that the troubleshooting question steers toward — demo and runbook reinforce each other. |
 | VCS (canonical) | **Forgejo** (`git.konoss.org`) | On-prem source of truth. Honors org convention. |
-| VCS (Spacelift-facing) | **GitHub** (public mirror) | Spacelift supports GitHub/GitLab/Bitbucket/Azure DevOps — **not** Forgejo. Spacelift's GitHub App watches the mirror. **PR lifecycle happens on GitHub** (that is where Spacelift's PR webhooks fire); Forgejo mirrors code/branches only. |
+| VCS (Spacelift-facing, full flow) | **GitHub** (public mirror) | The required PR→preview→merge→deploy flow needs a first-class VCS integration with PR webhooks + commit-status callbacks. GitHub provides this; Spacelift's GitHub App watches the mirror and the **PR lifecycle happens on GitHub**. |
+| VCS (Forgejo, capability contrast) | **Forgejo via Spacelift "Raw Git"** | Spacelift CAN connect to self-hosted Forgejo — but only via **Raw Git**, which is **one-way**: manual *Sync + Trigger*, **no PR previews, no commit-status checks, no merge-triggered deploys** (per Spacelift docs: "Pushes, PRs, etc. are not supported"). Used in the demo as a deliberate **side-by-side contrast** to GitHub, narrating the tradeoff — NOT as the required-flow driver. |
 | Secrets (Bao) | **Talking point, not a live dependency** | Spacelift's cloud workers can't reach overlay-only Bao without exposing it (violates the no-public-ports rule). OIDC removes the need for a stored secret entirely — a *stronger* use of the Bao story than wiring it in. |
 | Multi-env | **dev + prod stacks** (code shipped; stack-dependency auto-trigger is paid) | Two free stacks are allowed; the paid "stack dependency" output-passing/auto-trigger is narrated as upsell. |
 
@@ -188,6 +189,12 @@ access keys in Spacelift, contexts, env vars, or Bao.
    first — the governance beat.
 6. **OIDC** — show the run authenticating to AWS with no static credentials
    (call out the cloud integration), and the S3 bucket appearing in AWS.
+7. **Forgejo via Raw Git (capability contrast)** — a second stack pointed at the
+   canonical Forgejo repo through Spacelift's Raw Git integration. Show its
+   **manual Sync + Trigger**, then narrate the tradeoff: Raw Git is a *one-way*
+   connection (no PR previews / commit-status checks / merge-triggered deploys),
+   so the full PR-driven GitOps loop needs a first-class VCS integration like
+   GitHub. Same OpenTofu code, different integration tier.
 
 **Narrated upsell (slide/screenshot, code shipped in repo):**
 7. **Drift detection** — what it does, why GitOps needs it (Starter+).
