@@ -1,3 +1,8 @@
+# Proves which AWS identity Spacelift assumed on each run (via OIDC/AssumeRole),
+# surfacing the account id in the run outputs — handy evidence that the keyless
+# integration authenticated, with no static credentials involved.
+data "aws_caller_identity" "current" {}
+
 locals {
   name_prefix = "spacelift-gitops-demo-${var.environment}"
   common_tags = {
