@@ -139,6 +139,43 @@ policy-ready, real infrastructure.
 
 ---
 
+## The realization: most of that friction was self-inflicted
+
+After getting the AWS path working, we stepped back and asked the question a
+real prospect would ask: **in my org, "create an IAM user / attach admin /
+mint a key / add a trust relationship" is a change-request that needs security
+approval. Do I really have to do all that just to evaluate Spacelift?**
+
+The answer is **no** — and we'd taken the hard road unnecessarily.
+
+Spacelift lets a stack run with **no cloud integration attached at all**. If the
+OpenTofu uses **credential-less providers** (`random`, `null`, `local`, `tls`,
+`time`), a run needs zero cloud credentials, zero IAM, and zero approvals — and
+you still get the *entire* Spacelift experience: managed state, PR previews,
+plan diffs, OPA policies, approvals, the full GitOps loop.
+
+We built exactly this as [`stacks/sandbox`](../stacks/sandbox) — a `random_pet`
++ `null_resource` stack with a matching Plan policy
+([`plan-sandbox-block-public.rego`](../policies/plan-sandbox-block-public.rego))
+that blocks a "public" resource, mirroring the S3 scenario with no cloud. We
+verified it end to end in Spacelift:
+
+```
+random_pet.name: Creation complete after 0s [id=stable-bull]
+null_resource.app: Creation complete after 0s
+Apply complete! Resources: 2 added, 0 changed, 0 destroyed.
+```
+
+No integration, no credentials, no approval. A brand-new user could see every
+concept the evaluation cares about **in minutes**, then decide whether the
+one-time, approval-gated cloud-trust setup is worth doing.
+
+**This is the single most important SE takeaway of the whole exercise.** The
+right first-run story is: *sandbox stack first (zero approvals, full value),
+real cloud second (once you've done the one-time trust setup)*. We now lead the
+demo that way. The IAM/trust friction is real and worth smoothing — but it
+should never be the *first* thing a prospect hits, and it doesn't have to be.
+
 ## Honest assessment of the experience
 
 **What was genuinely smooth**
@@ -156,12 +193,15 @@ policy-ready, real infrastructure.
 3. Minor: OAuth-only signup and the region default were mild surprises.
 
 **What I'd bring back as an SE**
+- **Lead every evaluation with a no-cloud sandbox stack.** It's the fastest path
+  to value and needs zero approvals — the IAM/trust work can wait until the
+  prospect has already seen the workflow and wants real cloud. This should be
+  the documented "first 10 minutes" story.
 - The trust-policy step deserves a generated, copy-paste, region-aware snippet
   in the integration screen, with the tag-session statement already split out.
 - Error messages at attach/assign time could name the failing condition.
 - A short "AWS prerequisites" checklist (IAM user, minimal policy, how to mint a
-  key) would de-risk the very first step for prospects who don't live in AWS
-  daily.
+  key) would de-risk the cloud step for prospects who don't live in AWS daily.
 
 None of these are dealbreakers — we got a full keyless GitOps deploy working.
 They're the difference between a good first-run and a frustrating one, which is

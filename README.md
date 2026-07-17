@@ -58,7 +58,8 @@ Plus, beyond the ask:
 | Path | What it is |
 |------|------------|
 | [`modules/s3-bucket/`](modules/s3-bucket) | Reusable S3 bucket module. `public` toggles the public-access block — the lever the Plan policy inspects. |
-| [`stacks/dev/`](stacks/dev), [`stacks/prod/`](stacks/prod) | The dev and prod environments (each a Spacelift stack). |
+| [`stacks/sandbox/`](stacks/sandbox) | **Approval-free** stack using credential-less providers (`random`/`null`) — the full GitOps + policy workflow with **no cloud integration, no IAM, no approvals**. The recommended first-run path. |
+| [`stacks/dev/`](stacks/dev), [`stacks/prod/`](stacks/prod) | The real-cloud dev and prod environments (each a Spacelift stack, AWS via OIDC/AssumeRole). |
 | [`policies/`](policies) | The three OPA policies + a passing unit test for the Plan policy. |
 | [`bootstrap/`](bootstrap) | One-time OpenTofu that registers the Spacelift OIDC provider + IAM role in AWS. Run once with admin keys; Spacelift is keyless thereafter. |
 | [`docs/troubleshooting-aws-credentials.md`](docs/troubleshooting-aws-credentials.md) | **Deliverable:** how to fix `no valid credential sources for Terraform AWS Provider`. |
