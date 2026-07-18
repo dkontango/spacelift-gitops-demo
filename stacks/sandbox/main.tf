@@ -46,3 +46,15 @@ resource "aws_s3_bucket" "orbit_storage" {
     environment = "demo"
   }
 }
+
+# Public-access-block on the bucket. When make_public = false (default/safe) all
+# four protections are ON. A PR that sets make_public = true turns them OFF — the
+# change the Plan policy (plan-block-public-s3) DENIES in the PR preview. This is
+# the demo's live policy-as-code guardrail.
+resource "aws_s3_bucket_public_access_block" "orbit_storage" {
+  bucket                  = aws_s3_bucket.orbit_storage.id
+  block_public_acls       = !var.make_public
+  block_public_policy     = !var.make_public
+  ignore_public_acls      = !var.make_public
+  restrict_public_buckets = !var.make_public
+}
