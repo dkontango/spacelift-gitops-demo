@@ -29,3 +29,19 @@ resource "null_resource" "app" {
 # source forces the run to authenticate to AWS — so it will exercise (and prove)
 # the AWS cloud integration on this stack, surfacing the account id as an output.
 data "aws_caller_identity" "current" {}
+
+# Spacelift Foundations tutorial, "First Launch" step 1: add a real S3 bucket.
+# bucket_prefix lets AWS append a unique suffix so we don't fight global name
+# uniqueness. NOTE: this requires the attached role to allow s3:CreateBucket on
+# orbit-storage-*; Prime Apollo 45 uses the AmazonS3FullAccess tutorial role, so
+# it's permitted. (A least-privilege role scoped to a different prefix would DENY
+# this — a naming/permission pitfall documented in the incident log.)
+resource "aws_s3_bucket" "orbit_storage" {
+  bucket_prefix = "orbit-storage-"
+  tags = {
+    name      = "Orbit Labs Storage"
+    managedBy = "Spacelift"
+    mission   = "First Launch"
+    project   = "Orbit-labs"
+  }
+}
