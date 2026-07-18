@@ -68,6 +68,8 @@ Plus, beyond the ask:
 | [`docs/recording-script.md`](docs/recording-script.md) | Scene-by-scene script for the demo video. |
 | [`docs/spacelift-setup.md`](docs/spacelift-setup.md) | Reproducible setup runbook (account, stacks, OIDC, policies). |
 | [`docs/build-journey.md`](docs/build-journey.md) | **Honest build log** — how this was set up (AI-agent-driven), the real blockers hit, and the SE takeaways. |
+| [`docs/recording/`](docs/recording) | **The movie:** `workflow.mp4` (Forgejo→GitHub→Spacelift with a live OPA policy block) + `narration-script.md` keyed to each frame + the source `frames/`. |
+| [`docs/using-an-ai-agent-guide.md`](docs/using-an-ai-agent-guide.md) | **Explicit runbook** for onboarding to Spacelift *with an AI agent* — the prescriptive fix for every pitfall, plus a ready-to-use kickoff prompt. |
 
 ## Guardrails at a glance
 
