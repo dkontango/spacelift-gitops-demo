@@ -63,6 +63,7 @@ Plus, beyond the ask:
 | [`policies/`](policies) | The three OPA policies + a passing unit test for the Plan policy. |
 | [`bootstrap/`](bootstrap) | One-time OpenTofu that registers the Spacelift OIDC provider + IAM role in AWS. Run once with admin keys; Spacelift is keyless thereafter. |
 | [`docs/troubleshooting-aws-credentials.md`](docs/troubleshooting-aws-credentials.md) | **Deliverable:** how to fix `no valid credential sources for Terraform AWS Provider`. |
+| [`docs/tutorial-incident-log.md`](docs/tutorial-incident-log.md) | **The recording:** a blow-by-blow of driving Spacelift's Foundations tutorials with an AI agent — every error we produced, the inputs that caused them, the naming/repo/credential pitfalls, and how each was resolved. |
 | [`docs/troubleshooting-case-study.md`](docs/troubleshooting-case-study.md) | **The real thing:** a blow-by-blow of the exact error reproduced live, the inputs that caused it, why it's misleading, and how we resolved it. |
 | [`docs/recording-script.md`](docs/recording-script.md) | Scene-by-scene script for the demo video. |
 | [`docs/spacelift-setup.md`](docs/spacelift-setup.md) | Reproducible setup runbook (account, stacks, OIDC, policies). |
