@@ -11,7 +11,7 @@ locals {
 # human-readable name; the null_resource carries the demo's "visibility" flag
 # so the Plan policy has something to inspect (see policies/plan-sandbox-*).
 resource "random_pet" "name" {
-  length = 2
+  length = 3  # PR-flow test: widen generated name
   keepers = {
     environment = var.environment
   }
