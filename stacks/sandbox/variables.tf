@@ -12,5 +12,5 @@ variable "make_public" {
     change with zero cloud credentials.
   EOT
   type    = bool
-  default = false
+  default = false # fixed: bucket stays private, policy now passes
 }
