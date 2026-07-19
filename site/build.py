@@ -15,9 +15,11 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SITE = os.path.join(ROOT, "site")
 
 # (nav label, output filename, source markdown or None for the hand-written index)
+# "WIZARD" as the source means: build the swipeable step wizard from
+# docs/illustrated-walkthrough.md instead of rendering it as a scroll page.
 PAGES = [
     ("Overview", "index.html", None),
-    ("Illustrated Walkthrough", "walkthrough.html", "docs/illustrated-walkthrough.md"),
+    ("Illustrated Walkthrough", "walkthrough.html", "WIZARD"),
     ("Onboarding — By Hand", "by-hand.html", "docs/onboarding-by-hand.md"),
     ("Onboarding — With AI", "with-ai.html", "docs/onboarding-with-ai.md"),
     ("AI Agent Context (AGENTS.md)", "agents.html", "AGENTS.md"),
@@ -201,10 +203,164 @@ INDEX_BODY = """
 """
 
 
+WIZARD_BODY = r"""
+<div class="wiz-head">
+  <h1>Illustrated Walkthrough</h1>
+  <p>Swipe or use the arrows / keyboard (← →) to step through the whole workflow — AWS setup, the Spacelift integration, creating a stack, deploying, and the OPA policy blocking a bad change in a pull request.</p>
+  <p class="wiz-note">Live screenshots have AWS account IDs and ARNs blacked out. The AWS-console steps are shown as labeled diagrams; everything on the Spacelift side is a real, redacted screenshot.</p>
+</div>
+
+<div class="wizard" id="wizard">
+  <div class="wiz-stage">
+    <button class="wiz-arrow wiz-prev" id="wizPrev" aria-label="Previous step">&#8249;</button>
+    <figure class="wiz-slide" id="wizSlide">
+      <div class="wiz-caption-top"><span class="wiz-counter" id="wizCounter"></span><span class="wiz-title" id="wizTitle"></span></div>
+      <div class="wiz-imgwrap"><img id="wizImg" alt=""></div>
+      <figcaption id="wizCap"></figcaption>
+    </figure>
+    <button class="wiz-arrow wiz-next" id="wizNext" aria-label="Next step">&#8250;</button>
+  </div>
+  <div class="wiz-progress"><div class="wiz-bar" id="wizBar"></div></div>
+  <div class="wiz-dots" id="wizDots"></div>
+</div>
+
+<script>
+(function(){
+  var steps = __DATA__;
+  var total = __TOTAL__;
+  var idx = 0;
+
+  var img = document.getElementById('wizImg');
+  var title = document.getElementById('wizTitle');
+  var cap = document.getElementById('wizCap');
+  var counter = document.getElementById('wizCounter');
+  var bar = document.getElementById('wizBar');
+  var dotsEl = document.getElementById('wizDots');
+  var slide = document.getElementById('wizSlide');
+
+  // build dots
+  for (var i=0;i<total;i++){
+    var d = document.createElement('button');
+    d.className='wiz-dot'; d.setAttribute('aria-label','Go to step '+(i+1));
+    (function(n){ d.addEventListener('click', function(){ go(n); }); })(i);
+    dotsEl.appendChild(d);
+  }
+  var dots = dotsEl.querySelectorAll('.wiz-dot');
+
+  function render(){
+    var s = steps[idx] || {title:'',img:'',cap:''};
+    // fade
+    slide.classList.remove('show');
+    var pre = new Image();
+    pre.onload = show; pre.onerror = show; pre.src = s.img;
+    function show(){
+      img.src = s.img; img.alt = s.title;
+      title.innerHTML = s.title;
+      cap.innerHTML = s.cap;
+      counter.textContent = 'Step '+(idx+1)+' / '+total;
+      bar.style.width = ((idx+1)/total*100)+'%';
+      for (var i=0;i<dots.length;i++){ dots[i].classList.toggle('active', i===idx); }
+      requestAnimationFrame(function(){ slide.classList.add('show'); });
+    }
+    if (location.hash !== '#step-'+(idx+1)) history.replaceState(null,'','#step-'+(idx+1));
+  }
+  function go(n){ idx = Math.max(0, Math.min(total-1, n)); render(); }
+  function next(){ go(idx+1); }
+  function prev(){ go(idx-1); }
+
+  document.getElementById('wizNext').addEventListener('click', next);
+  document.getElementById('wizPrev').addEventListener('click', prev);
+  document.addEventListener('keydown', function(e){
+    if (e.key==='ArrowRight') next();
+    else if (e.key==='ArrowLeft') prev();
+  });
+
+  // swipe / drag
+  var startX=null, dragging=false;
+  function down(x){ startX=x; dragging=true; slide.style.transition='none'; }
+  function move(x){ if(!dragging) return; slide.style.transform='translateX('+((x-startX)*0.4)+'px)'; }
+  function up(x){ if(!dragging) return; dragging=false; slide.style.transition='';
+    var dx = x-startX; slide.style.transform='';
+    if (dx < -50) next(); else if (dx > 50) prev();
+    startX=null;
+  }
+  slide.addEventListener('touchstart', function(e){ down(e.touches[0].clientX); }, {passive:true});
+  slide.addEventListener('touchmove', function(e){ move(e.touches[0].clientX); }, {passive:true});
+  slide.addEventListener('touchend', function(e){ up((e.changedTouches[0]||{}).clientX||startX); });
+  slide.addEventListener('mousedown', function(e){ down(e.clientX); e.preventDefault(); });
+  window.addEventListener('mousemove', function(e){ move(e.clientX); });
+  window.addEventListener('mouseup', function(e){ up(e.clientX); });
+
+  // deep link
+  var m = (location.hash||'').match(/#step-(\d+)/);
+  if (m){ idx = Math.max(0, Math.min(total-1, parseInt(m[1],10)-1)); }
+  render();
+})();
+</script>
+"""
+
+
+def parse_walkthrough_steps():
+    """Parse docs/illustrated-walkthrough.md into a list of {title, img, caption}.
+
+    A step is: a line with an image `![alt](src)`, optionally preceded by the most
+    recent `## heading` (title) and followed by an `*italic caption*` line.
+    """
+    src = os.path.join(ROOT, "docs/illustrated-walkthrough.md")
+    with open(src, encoding="utf-8") as f:
+        lines = f.read().split("\n")
+    steps = []
+    last_h2 = None
+    intro = None  # the leading blockquote note, shown on the first slide
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        m2 = re.match(r"^##\s+(.*)$", line)
+        if m2:
+            last_h2 = m2.group(1).strip()
+            i += 1; continue
+        im = re.match(r"^!\[([^\]]*)\]\(([^)]+)\)\s*$", line)
+        if im:
+            img = im.group(2)
+            cap = ""
+            if i + 1 < len(lines) and re.match(r"^\*[^*].*\*\s*$", lines[i + 1]):
+                cap = lines[i + 1].strip().strip("*")
+                i += 1
+            title = last_h2 or "The pipeline"
+            if img.strip():
+                steps.append({"title": title, "img": img, "caption": cap})
+            last_h2 = None
+        i += 1
+    return steps
+
+
+def wizard_body():
+    steps = parse_walkthrough_steps()
+    # JSON-ish data array for the client.
+    def esc(s):
+        return (s or "").replace("\\", "\\\\").replace("'", "\\'").replace("\n", " ")
+    data = "[" + ",".join(
+        "{title:'%s',img:'%s',cap:'%s'}" % (esc(inline_text(s["title"])), esc(s["img"]), esc(inline_text(s["caption"])))
+        for s in steps
+    ) + "]"
+    total = len(steps)
+    return WIZARD_BODY.replace("__DATA__", data).replace("__TOTAL__", str(total))
+
+
+def inline_text(s):
+    """Convert a bit of inline markdown (code/bold) to safe HTML for the wizard."""
+    s = html.escape(s or "", quote=False)
+    s = re.sub(r"`([^`]+)`", r"<code>\1</code>", s)
+    s = re.sub(r"\*\*([^*]+)\*\*", r"<strong>\1</strong>", s)
+    return s
+
+
 def build():
     for label, fn, src in PAGES:
         if src is None:
             body = INDEX_BODY; title = "Overview"
+        elif src == "WIZARD":
+            body = wizard_body(); title = "Illustrated Walkthrough"
         else:
             with open(os.path.join(ROOT, src), encoding="utf-8") as f:
                 md = f.read()

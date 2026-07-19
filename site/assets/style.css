@@ -58,6 +58,39 @@ figure{margin:22px 0; padding:0}
 figure img{width:100%; max-width:100%; height:auto; border:1px solid var(--border); border-radius:10px; display:block; background:#0a0f1c}
 figcaption{color:var(--muted); font-size:13.5px; margin-top:8px; text-align:center; font-style:italic}
 .step-num{display:inline-block; background:var(--accent); color:#0b1020; font-weight:700; border-radius:6px; padding:1px 9px; font-size:14px; margin-right:8px}
+/* --- Wizard (swipeable walkthrough) --- */
+.wiz-head h1{margin:0 0 6px}
+.wiz-head p{color:var(--muted); margin:6px 0}
+.wiz-head .wiz-note{font-size:13.5px; color:#c9a24b; background:var(--warn-bg); border:1px solid var(--warn-border); border-radius:8px; padding:10px 14px}
+.wizard{margin:22px 0 10px}
+.wiz-stage{display:flex; align-items:center; gap:14px}
+.wiz-arrow{flex:0 0 auto; width:52px; height:52px; border-radius:50%; border:1px solid var(--border);
+  background:var(--panel); color:var(--text); font-size:30px; line-height:1; cursor:pointer; transition:all .15s;
+  display:flex; align-items:center; justify-content:center; user-select:none}
+.wiz-arrow:hover{background:var(--accent); color:#0b1020; border-color:var(--accent)}
+.wiz-arrow:disabled{opacity:.3; cursor:default}
+.wiz-slide{flex:1 1 auto; margin:0; background:var(--panel2); border:1px solid var(--border); border-radius:14px;
+  padding:18px 20px; opacity:0; transform:translateY(6px); transition:opacity .28s ease, transform .28s ease; cursor:grab}
+.wiz-slide.show{opacity:1; transform:none}
+.wiz-slide:active{cursor:grabbing}
+.wiz-caption-top{display:flex; align-items:baseline; gap:12px; margin-bottom:12px; flex-wrap:wrap}
+.wiz-counter{background:var(--accent); color:#0b1020; font-weight:700; border-radius:6px; padding:2px 10px; font-size:13px; white-space:nowrap}
+.wiz-title{font-size:20px; font-weight:600; color:#e7ecf5}
+.wiz-imgwrap{background:#0a0f1c; border:1px solid var(--border); border-radius:10px; overflow:hidden; text-align:center}
+.wiz-imgwrap img{width:100%; height:auto; max-height:62vh; object-fit:contain; display:block; margin:0 auto; -webkit-user-drag:none; user-select:none}
+.wiz-slide figcaption{color:var(--muted); font-size:14px; margin-top:12px; font-style:italic; text-align:center}
+.wiz-progress{height:5px; background:var(--panel); border-radius:4px; margin:16px 66px 0; overflow:hidden}
+.wiz-bar{height:100%; width:0; background:linear-gradient(90deg,var(--accent),var(--accent2)); transition:width .3s ease}
+.wiz-dots{display:flex; flex-wrap:wrap; gap:7px; justify-content:center; margin:16px 0 0}
+.wiz-dot{width:11px; height:11px; border-radius:50%; border:none; background:#33415c; cursor:pointer; padding:0; transition:all .15s}
+.wiz-dot:hover{background:#5c7bb5}
+.wiz-dot.active{background:var(--accent); transform:scale(1.25)}
+@media (max-width:820px){
+  .wiz-arrow{width:42px; height:42px; font-size:24px}
+  .wiz-imgwrap img{max-height:48vh}
+  .wiz-progress{margin:14px 8px 0}
+}
+
 .footer{color:var(--muted); font-size:13px; margin-top:48px; padding-top:20px; border-top:1px solid var(--border)}
 @media (max-width:820px){
   .layout{flex-direction:column}
