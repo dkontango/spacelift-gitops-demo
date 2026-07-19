@@ -13,3 +13,15 @@ crash.*.log
 *.pem
 *_key
 *_secret
+
+# Recording intermediates (large, regenerable) and raw un-redacted session captures
+docs/recording/frames17/
+docs/recording/build/stage/
+docs/recording/build/qa-*.png
+docs/recording/build/aws-*.png
+docs/recording/build/capture-run.js
+docs/recording/frames/e2e-*.png
+docs/recording/frames/1*-wizard-*.png
+docs/recording/frames/12-wizard-step2.png
+docs/recording/frames/11-wizard-step1.png
+docs/recording/frames/13-wizard-counter-fixed.png

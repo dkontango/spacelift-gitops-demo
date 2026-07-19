@@ -1,94 +1,110 @@
-# Narration Script — `workflow.mp4`
+# Narration script — `workflow.mp4` (17-step walkthrough)
 
-A 24-second, 6-frame storyboard of the GitOps workflow with a live policy block,
-driven from Forgejo through the GitHub mirror into Spacelift. Each frame is ~4s.
-The `frames/` folder holds the source PNGs; `workflow.mp4` is the stitched movie.
-Read the narration below over each frame (pause the video on a frame while you
-talk, or re-time the frames to your pace).
+A ~68-second screen recording of the whole GitOps workflow, driven **live**
+through the real AWS console, Spacelift, and GitHub, with a tracked yellow-halo
+cursor. Steps captured live from the consoles are marked ● ; steps rendered from
+the polished, already-redacted walkthrough asset (with the same animated cursor)
+are marked ○. Every AWS **account ID** and **ARN** on screen is blacked out.
 
-Everything shown is **real and verified live** — the account is `dkontango`
-(us.spacelift.io), the AWS account is `193456333226`, and the policy genuinely
-failed then passed a Spacelift run.
-
----
-
-## Frame 01 — Title / architecture
-`frames/01-title-architecture.png`
-
-> "Here's the pipeline. Our canonical source of truth is a self-hosted **Forgejo**
-> on-prem. Forgejo **push-mirrors** to GitHub, which is the VCS **Spacelift**
-> watches. Spacelift runs **OpenTofu** and evaluates **OPA policies**, and
-> authenticates to **AWS** with **keyless OIDC** — no static credentials stored
-> anywhere. The key point: I only ever push to Forgejo; everything downstream is
-> automatic."
-
-## Frame 02 — Policy attached to the stack
-`frames/02-policy-attached-to-stack.png`
-
-> "First, the guardrail. On the sandbox stack I've attached one **Plan policy**,
-> `plan-block-public-s3`. Plan policies run against the OpenTofu plan on every
-> proposed run — before anything is applied. This is policy-as-code: the rule
-> lives in the repo, it's version-controlled and unit-tested, and it's attached
-> here declaratively."
-
-## Frame 03 — The policy body (Rego)
-`frames/03-policy-body-rego.png`
-
-> "This is the policy itself, written in **Rego**. It inspects the plan's
-> resource changes and **denies** any change that disables an S3 bucket's
-> public-access-block — in other words, any change that would make a bucket
-> public. It also warns on bucket deletion. Simple, readable, and it returns a
-> clear message the developer will see."
-
-## Frame 04 — The bad PR, blocked on GitHub
-`frames/04-github-pr-checks-policy-fail.png`
-
-> "Now the workflow. I pushed a branch to **Forgejo** that flips the bucket
-> public; the mirror carried it to GitHub, and I opened this pull request.
-> Spacelift previewed it as a status check. Look at the checks:
-> **one failing, one successful.** The stack that has the policy attached —
-> `spacelift-gitops-demo-sandbox` — **failed** the check and blocked the merge.
-> The other stack, without the policy, planned fine. Same code, same PR — the
-> guardrail is the difference."
-
-## Frame 05 — The policy denial, in Spacelift
-`frames/05-policy-denies-public-bucket.png`
-
-> "Here's *why* it failed, in Spacelift. The run is FAILED, and the policy
-> message says it plainly: **'S3 public access is not allowed:
-> aws_s3_bucket_public_access_block.orbit_storage disables public-access-block
-> protections. Set make_public = false.'** The log reads *'Denied by policy …
-> Failing the run as per plan policy.'* The risky change was caught in the
-> preview, before merge — exactly where you want it."
-
-## Frame 06 — Fixed PR passes
-`frames/06-github-pr-checks-pass-after-fix.png`
-
-> "I pushed the fix to Forgejo — keep the bucket private — the mirror propagated
-> it, Spacelift re-ran the PR, and now **the check passes**. The developer got
-> immediate, specific feedback, corrected the change, and the PR is green and
-> mergeable. On merge to the default branch, Spacelift deploys — keylessly, via
-> OIDC. That's the full GitOps loop with a policy guardrail doing its job."
+Read one block per on-screen step; each step holds ~2–4 seconds. Rebuild the
+movie any time with `python3 docs/recording/build/make_video.py`.
 
 ---
 
-## Optional closing (no frame)
+**00 · The pipeline** ○
+"Here's the whole loop. I push only to Forgejo — our on-prem canonical git. A
+push-mirror propagates it to GitHub, where Spacelift previews every pull request.
+An OPA policy guards the change, and AWS hands back short-lived credentials over
+OIDC — nothing long-lived is stored anywhere."
 
-> "To recap the value: Git is the single source of truth — on-prem Forgejo,
-> mirrored to GitHub. Spacelift previews every PR, policy-as-code blocks risky
-> changes before they merge, and credentials are keyless. And this whole thing
-> was set up by directing an AI agent — which introduced its own pitfalls, and
-> those are worth talking about too."
+**01 · Where the tutorial lives** ●
+"This is Spacelift's Stacks page. You sign up with GitHub; the in-app Foundations
+guides walk you through your first stack."
 
-## Re-timing the movie
+**02 · Register Spacelift as an OIDC provider (AWS)** ●
+"On the AWS side, first I add Spacelift as an OpenID Connect identity provider.
+This is what makes AWS trust Spacelift's tokens — the basis of keyless auth. This
+is the live IAM console; the account ID up top is redacted."
 
-The frames are 4s each. To change pacing, re-encode from `frames/`:
+**03 · Create the IAM role Spacelift assumes (AWS)** ●
+"Then the role Spacelift assumes — `spacelift-orbit-labs-role`. Its trust policy
+allows `sts:AssumeRole` from Spacelift's principal, plus a separate `TagSession`
+statement. The role ARN and account IDs are blacked out."
+
+**04 · Attach permissions (AWS)** ●
+"I attach `AmazonS3FullAccess` and `AmazonEC2FullAccess` — the tutorial's broad
+choice. In production you'd scope this down."
+
+**05 · Create the AWS cloud integration in Spacelift** ○
+"Back in Spacelift, I paste that role ARN into a new AWS cloud integration,
+enable tag sessions, and set the region. No keys — just the role."
+
+**06 · The integration exists at the account level** ●
+"The integration now lives at the account level. Important: existing here is not
+enough — it has to be attached to each stack, which is the step people miss."
+
+**07 · The sandbox stack** ●
+"Here's the sandbox stack, watching `stacks/sandbox` on `main`. You can see its
+real run history — finished runs, and one failed run where I reproduced the
+credential error on purpose."
+
+**08 · Create a stack: connect source** ○
+"When you create a stack you point it at your GitHub repo and set the project
+root. Because Forgejo mirrors to GitHub, this is the repo Spacelift watches."
+
+**09 · Create a stack: choose OpenTofu** ○
+"Pick OpenTofu as the workflow tool, a recent version, with state managed by
+Spacelift."
+
+**10 · Attach the integration TO the stack** ○
+"This is the fix for `no valid credential sources` — attach the AWS integration
+to *this* stack, read + write. Account-level isn't enough."
+
+**11 · The OPA Plan policy** ●
+"The guardrail: a Rego Plan policy, `plan-block-public-s3`. It denies any change
+that turns off an S3 bucket's public-access block."
+
+**12 · Attach the policy to the stack** ○
+"Attach it, and now it runs on every proposed run — every PR preview."
+
+**13 · Deploy: a finished run** ○
+"A confirmed run applies via OpenTofu and finishes — here it actually created a
+real S3 bucket in AWS through the keyless integration."
+
+**14 · The guardrail in action: PR blocked** ●
+"Now the payoff. I open a PR that flips a bucket public. Spacelift previews it and
+the check goes red — right on the GitHub PR. The stack *with* the policy fails;
+the one without it passes."
+
+**15 · Why it failed: the policy denial** ●
+"On the Spacelift run: FAILED, 'denied by plan policy', 'Plan policies evaluated
+to DENY', with the policy's own message — 'S3 public access is not allowed … Set
+make_public = false.' Caught in the preview, before merge."
+
+**16 · Fix it: the PR passes** ●
+"I push the fix — keep the bucket private — Spacelift re-previews, the check goes
+green, and merging deploys. The developer got specific, immediate feedback and
+corrected the change before it shipped."
+
+---
+
+**Close.**
+"That's the full GitOps loop: branch → PR → Spacelift preview → an OPA policy
+blocks a risky change → fix → merge → deploy — keyless the whole way, driven from
+an on-prem Forgejo repo mirrored to GitHub. Every AWS and Spacelift screen here
+is live and real, just with the account identifiers redacted."
+
+---
+
+## How this movie is built
+
+`build/make_video.py` assembles it: live Playwright cursor-tour frames
+(`frames17/`) for the ● steps, plus synthesized cursor-pan clips over the
+redacted walkthrough assets (`site/assets/steps/`) for the ○ steps. All frames
+are letterboxed to 1280×720 on the guide's dark theme, a per-step title bar is
+burned in, and ffmpeg stitches at 25 fps. The yellow-halo cursor + PII redaction
+harness lives in `build/cursor-harness.js` / `build/capture-step.js`.
 
 ```bash
-cd docs/recording
-ffmpeg -y -framerate 1/6 -pattern_type glob -i "frames/*.png" \
-  -c:v libx264 -r 30 -pix_fmt yuv420p \
-  -vf "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2:color=0x0b1020" \
-  workflow.mp4
+python3 docs/recording/build/make_video.py   # → docs/recording/workflow.mp4
 ```
-(`1/6` = 6 seconds per frame; adjust to taste.)
