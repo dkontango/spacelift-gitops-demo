@@ -14,6 +14,7 @@ resource "random_pet" "name" {
   length = 3  # PR-flow test: widen generated name
   keepers = {
     environment = var.environment
+    e2e_apply   = "demo-run-1" # E2E: forces a real tracked run + apply
   }
 }
 
