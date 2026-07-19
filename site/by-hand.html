@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Onboarding — By Hand — Spacelift GitOps Guide</title>
+<link rel="stylesheet" href="assets/style.css">
+</head><body><div class="layout">
+<nav class="sidebar">
+  <p class="brand">Spacelift <span>GitOps</span> Guide</p>
+  <p class="brand-sub">Forgejo → GitHub → Spacelift → AWS</p>
+  <div class="nav-group">Guide</div><a href="index.html">Overview</a><a href="by-hand.html" class="active">Onboarding — By Hand</a><a href="with-ai.html">Onboarding — With AI</a><a href="agents.html">AI Agent Context (AGENTS.md)</a><div class="nav-group">Reference</div><a href="troubleshooting.html">Troubleshooting: AWS creds</a><div class="nav-group">Repo</div><a href="https://github.com/dkontango/spacelift-gitops-demo">GitHub mirror</a><a href="https://git.konoss.org/kadmin/spacelift-gitops-demo">Forgejo (canonical)</a>
+</nav>
+<main class="content">
+<h1>Spacelift Onboarding — By Hand (No AI)</h1>
+<p>A full click-by-click walkthrough of the Spacelift GitOps workflow, done entirely by a human. Follow it top to bottom. It uses the <strong>exact names</strong> Spacelift generates and its tutorials expect.</p>
+<blockquote><p><strong>Read the two callouts first — they cause the most confusion:</strong></p>
+<h3>⚠️ Session management — one Spacelift session at a time</h3>
+<p>Spacelift allows <strong>only one active session per user</strong>. The login UI even shows a <strong>"Multi-session disabled"</strong> control. Logging in via the CLI (<code>spacectl</code>, <code>terraform login</code>) invalidates your <strong>web</strong> session and vice-versa. If you later let an AI agent drive via a separate browser, <strong>it will log you out</strong> — only one session can be active. Plan for that: pick one driver at a time.</p>
+<h3>⚠️ Naming — the names are opaque and specific</h3>
+<p>Spacelift <strong>auto-generates</strong> stack and integration names like <strong><code>Prime Apollo 45</code></strong> and <strong><code>Viking Terminal AWS</code></strong>. These names tell you nothing about which repo or IAM role they use. Always track the full tuple: <strong>(stack, repository, project root, IAM role ARN, integration name)</strong>. The tutorial's code uses exact literals — <code>random_pet</code>, <code>aws_s3_bucket.orbit_storage</code>, <code>bucket_prefix = "orbit-storage-"</code>, role <code>spacelift-orbit-labs-role</code> — match them exactly.</p></blockquote>
+<hr>
+<h2>Prerequisites</h2>
+<ul><li>A GitHub account (Spacelift signs up via OAuth — GitHub/GitLab/Google/MS).</li><li>A GitHub repo Spacelift can watch, containing the starter Terraform/OpenTofu</li></ul>
+<p>  (a <code>random_pet</code> resource in a <code>main.tf</code>). This repo (<code>stacks/sandbox</code>) has it.</p>
+<ul><li>An AWS account where you can create an IAM OIDC provider + role.</li></ul>
+<hr>
+<h2>Step 1 — Create your Spacelift account</h2>
+<ol><li>Go to <strong>https://spacelift.io/free-trial</strong>.</li><li>Choose your <strong>data region</strong> (US or Europe). This sets your account hostname</li></ol>
+<p>   (<code>&amp;lt;account&amp;gt;.app.us.spacelift.io</code> for US) and, later, the AWS principal to    trust. Pick <strong>United States</strong> for a US-based eval.</p>
+<ol><li>Click <strong>GitHub</strong> to sign up. Authorize the app. (Signing up with GitHub also</li></ol>
+<p>   auto-creates a built-in GitHub VCS integration — no separate App install.)</p>
+<ol><li>You land on <strong>LaunchPad</strong>. Note your account name in the URL</li></ol>
+<p>   (<code>https://&amp;lt;account&amp;gt;.app.us.spacelift.io</code>).</p>
+<h2>Step 2 — Find the tutorial</h2>
+<p>The in-app tutorials are the <strong>Foundations</strong> guides. Open the <strong>Assistant panel</strong> (right side of a stack page) or <strong>LaunchPad → Learn</strong>. You'll complete:</p>
+<ul><li><strong>Credentials, Not Secrets — AWS Integration</strong> (8 steps)</li><li><strong>First Launch — Deploy Real Infrastructure</strong> (7 steps)</li><li>(Optional) <strong>Guardrails — Enforce Policy Rules</strong></li></ul>
+<p>Each step has <strong>Next step / Previous step / Complete</strong> and a progress bar ("3/7"). Steps often gate on "a new run was triggered on your stack."</p>
+<h2>Step 3 — Prepare AWS (one-time): OIDC provider + IAM role</h2>
+<p>The tutorial (guide "Credentials, Not Secrets") walks you through this in the AWS console; the exact end-state is:</p>
+<ol><li><strong>IAM → Identity providers → Add provider → OpenID Connect.</strong></li></ol>
+<ul><li>Provider URL: <code>https://&amp;lt;account&amp;gt;.app.us.spacelift.io</code></li><li>Audience: the same URL. Click <strong>Get thumbprint</strong>.</li></ul>
+<ol><li><strong>IAM → Roles → Create role</strong>, trusted entity = the OIDC provider (or another</li></ol>
+<p>   AWS account for AssumeRole). Name it <strong><code>spacelift-orbit-labs-role</code></strong>.</p>
+<ol><li><strong>Attach permissions:</strong> the tutorial says attach <strong>AmazonS3FullAccess</strong> +</li></ol>
+<p>   <strong>AmazonEC2FullAccess</strong> (broad, simple). Add description *"Role for Spacelift    to manage AWS infrastructure."* Click <strong>Create role</strong>.</p>
+<ol><li>Open the role → copy its <strong>Role ARN</strong></li></ol>
+<p>   (<code>arn:aws:iam::&amp;lt;ACCOUNT_ID&amp;gt;:role/spacelift-orbit-labs-role</code>). <strong>It must start    with <code>arn:</code>.</strong></p>
+<p><strong>Trust policy</strong> the role needs (us.spacelift.io principal shown):</p>
+<pre><code>{ "Version": "2012-10-17", "Statement": [
+  { "Effect": "Allow", "Action": "sts:AssumeRole",
+    "Principal": { "AWS": "577638371743" },
+    "Condition": { "StringLike": { "sts:ExternalId": "&lt;account-name&gt;@*" } } },
+  { "Effect": "Allow", "Action": "sts:TagSession",
+    "Principal": { "AWS": "577638371743" } } ]}</code></pre>
+<p>(EU/spacelift.io principal is <code>324880187172</code>. Keep the <code>TagSession</code> as its own statement.)</p>
+<h2>Step 4 — Create the AWS cloud integration in Spacelift</h2>
+<ol><li><strong>Integrations → AWS → Set up integration</strong> (or <strong>Cloud integrations</strong>).</li><li><strong>Name</strong> it (this is an *account-level* integration — Spacelift may propose a</li></ol>
+<p>   name like *Viking Terminal AWS*; you can rename it).</p>
+<ol><li><strong>Role ARN:</strong> paste the role ARN from Step 3. <strong>Verify it starts with <code>arn:</code>.</strong></li><li><strong>Assume role on worker:</strong> *No*. <strong>Enable tag session:</strong> *Yes*.</li></ol>
+<p>   <strong>Duration:</strong> 1h. <strong>Region:</strong> <code>us-east-1</code>.</p>
+<ol><li>Click <strong>Set up</strong>.</li></ol>
+<blockquote><p>If you get <strong>"unauthorized: you need to configure trust relationship section in your AWS account"</strong>: (a) check the Role ARN starts with <code>arn:</code> (a missing prefix is the usual culprit, *not* the trust policy); (b) IAM changes are eventually consistent — wait ~60 seconds and retry the save. Don't rewrite a correct trust policy chasing a propagation lag.</p></blockquote>
+<h2>Step 5 — Create a stack</h2>
+<p><strong>Stacks → Create stack.</strong> (Spacelift auto-names it — e.g. *Prime Apollo 45*.)</p>
+<ol><li><strong>Stack details:</strong> name/labels.</li><li><strong>Connect to source code:</strong> GitHub → pick your repo</li></ol>
+<p>   (<code>dkontango/spacelift-gitops-demo</code>) → <strong>Project root:</strong> <code>stacks/sandbox</code> →    branch <code>main</code>.</p>
+<ol><li><strong>Choose vendor:</strong> <strong>OpenTofu / Terraform</strong> (workflow tool: <strong>OpenTofu</strong>),</li></ol>
+<p>   recent version, <strong>Manage state</strong> on.</p>
+<ol><li><strong>Create &amp; continue.</strong></li></ol>
+<h2>Step 6 — Attach the integration TO THIS STACK</h2>
+<p>This is the step most people miss. The account-level integration is not enough.</p>
+<ol><li>On the stack → <strong>Settings → Integrations → Attach cloud integration.</strong></li><li>Select your AWS integration → <strong>Read</strong> + <strong>Write</strong> checked → <strong>Attach.</strong></li></ol>
+<blockquote><p>The error <strong><code>no valid credential sources for Terraform AWS Provider</code></strong> almost always means the integration is not attached <strong>to this specific stack</strong>. Attach it here and re-run.</p></blockquote>
+<h2>Step 7 — Follow "Credentials, Not Secrets" to the end</h2>
+<p>The tutorial has you add the AWS provider + a caller-identity data source to <code>main.tf</code>, alongside the existing <code>random_pet</code>:</p>
+<pre><code>terraform {
+  required_providers { aws = { source = "hashicorp/aws", version = "~&gt; 6.0" } }
+}
+provider "aws" { region = "us-east-1" }
+data "aws_caller_identity" "current" {}
+output "aws_account_id" { value = data.aws_caller_identity.current.account_id }</code></pre>
+<p><strong>Commit and push.</strong> The push auto-triggers a run. Watch it go <strong>INITIALIZING → PLANNING</strong>; it should resolve <code>aws_account_id</code> to your AWS account id. Advance the guide with <strong>Next step</strong> until it completes.</p>
+<h2>Step 8 — "First Launch — Deploy Real Infrastructure"</h2>
+<ol><li><strong>Add an S3 bucket</strong> to <code>main.tf</code> (the tutorial's exact code):</li></ol>
+<pre><code>   resource "aws_s3_bucket" "orbit_storage" {
+     bucket_prefix = "orbit-storage-"
+     tags = { name = "Orbit Labs Storage", managedBy = "Spacelift",
+              mission = "First Launch", project = "Orbit-labs" }
+   }</code></pre>
+<ol><li><strong>Verify autodeploy is OFF</strong> (Settings → Behavior) — the default. Commit + push.</li><li>A new <strong>TRACKED</strong> run appears and stops at <strong>UNCONFIRMED</strong> (autodeploy off).</li></ol>
+<p>   Review the plan — it should <strong>create 1 resource</strong> (<code>aws_s3_bucket.orbit_storage</code>).</p>
+<ol><li>Click <strong>Confirm.</strong> Watch <strong>APPLYING → FINISHED.</strong> Your bucket now exists in AWS</li></ol>
+<p>   (name starts <code>orbit-storage-…</code>).</p>
+<ol><li><strong>Verify</strong> on the stack's <strong>Resources</strong> tab (and optionally the AWS S3 console).</li><li><strong>Enable autodeploy</strong> (Settings → Behavior → Autodeploy → Save).</li><li><strong>Test autodeploy:</strong> add a tag (<code>environment = "demo"</code>) to the bucket, commit +</li></ol>
+<p>   push. The run now goes straight <strong>PLANNING → APPLYING → FINISHED</strong>, skipping    UNCONFIRMED. Click <strong>Complete</strong> — the guide is done.</p>
+<h2>Step 9 (bonus) — Policies (Guardrails)</h2>
+<ol><li><strong>Policies → Create policy</strong> → Type <strong>Plan</strong>, Space <strong>root</strong>, name</li></ol>
+<p>   <code>plan-block-public-s3</code>. Paste the Rego (see <code>policies/plan-block-public-s3.rego</code>).    <strong>Create policy.</strong></p>
+<ol><li>Stack → <strong>Policies → Attach policy</strong> → type <strong>Plan</strong> → select</li></ol>
+<p>   <code>plan-block-public-s3</code> → <strong>Attach.</strong></p>
+<ol><li><strong>Demonstrate it:</strong> open a PR that makes the bucket public (flip the</li></ol>
+<p>   public-access-block off). Spacelift previews the PR and the policy <strong>DENIES</strong>    it — the PR check fails with your policy message. Push a fix (keep it private)    and the check passes.</p>
+<hr>
+<h2>The run-queue gotcha</h2>
+<p>Spacelift runs blocking (tracked) runs <strong>one at a time</strong> per stack. A run left at <strong>UNCONFIRMED</strong> blocks new ones. <strong>Confirm</strong> or <strong>Discard</strong> it to release the queue. (The Confirm/Discard buttons sit right next to each other — click carefully.)</p>
+<h2>Quick error map</h2>
+<table><thead><tr><th>Error</th><th>Real cause</th><th>Fix</th></tr></thead><tbody><tr><td><code>no valid credential sources …</code></td><td>integration not attached to this stack</td><td>Step 6</td></tr><tr><td><code>configure trust relationship …</code></td><td>malformed Role ARN, or IAM propagation lag</td><td>check <code>arn:</code> prefix; wait 60s, retry</td></tr><tr><td>Tutorial "still errors" on push</td><td>stack points at wrong/empty repo</td><td>fix the stack's repo + project root</td></tr><tr><td>New run stuck QUEUED</td><td>a prior UNCONFIRMED run blocks the queue</td><td>Confirm/Discard the blocker</td></tr></tbody></table>
+<div class="footer">Deployed via Spacelift → S3 static website. Source of truth: Forgejo <code>git.konoss.org/kadmin/spacelift-gitops-demo</code>, mirrored to GitHub.</div>
+</main></div></body></html>

@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Agent Context (AGENTS.md) — Spacelift GitOps Guide</title>
+<link rel="stylesheet" href="assets/style.css">
+</head><body><div class="layout">
+<nav class="sidebar">
+  <p class="brand">Spacelift <span>GitOps</span> Guide</p>
+  <p class="brand-sub">Forgejo → GitHub → Spacelift → AWS</p>
+  <div class="nav-group">Guide</div><a href="index.html">Overview</a><a href="by-hand.html">Onboarding — By Hand</a><a href="with-ai.html">Onboarding — With AI</a><a href="agents.html" class="active">AI Agent Context (AGENTS.md)</a><div class="nav-group">Reference</div><a href="troubleshooting.html">Troubleshooting: AWS creds</a><div class="nav-group">Repo</div><a href="https://github.com/dkontango/spacelift-gitops-demo">GitHub mirror</a><a href="https://git.konoss.org/kadmin/spacelift-gitops-demo">Forgejo (canonical)</a>
+</nav>
+<main class="content">
+<h1>AGENTS.md — Context for an AI Agent Driving the Spacelift Onboarding</h1>
+<p>You are an AI coding agent helping a human onboard to <strong>Spacelift</strong> and complete its in-app tutorials (the GitOps workflow). This file tells you exactly what to do, what the real object names are, and the pitfalls that will bite you. Read it fully before acting. It is deliberately prescriptive.</p>
+<blockquote><p>This file is auto-read by agents that honor <code>AGENTS.md</code> (and pointed to by <code>CLAUDE.md</code>). Human-readable versions of everything here live in <code>docs/onboarding-by-hand.md</code> and <code>docs/onboarding-with-ai.md</code>.</p></blockquote>
+<hr>
+<h2>0. THE ONE RULE — pin the tuple before doing anything</h2>
+<p>Before you run, debug, or click anything, establish and repeat back this tuple. Almost every failure in this project came from the human and the agent being correct about <strong>different</strong> objects:</p>
+<pre><code>(stack name, repository, project root, IAM role ARN, cloud-integration name)</code></pre>
+<p>You and the human must agree on all five. Never debug by name alone — Spacelift auto-generates opaque names (see §2) that tell you nothing about which repo or role they use.</p>
+<hr>
+<h2>1. SESSION MANAGEMENT — read this before you open a browser</h2>
+<p><strong>Spacelift allows only ONE active session at a time.</strong> The signup/login UI literally shows a <strong>"Multi-session disabled"</strong> control. Logging in through one channel invalidates the others:</p>
+<ul><li>If you (the agent) log into Spacelift in an <strong>automation browser (Playwright)</strong>,</li></ul>
+<p>  you will <strong>kick the human out of their own Spacelift web session</strong>, and vice   versa. Only one of you can be logged in at once.</p>
+<ul><li>The same applies to <code>spacectl</code> / CLI / <code>terraform login</code>: authenticating there</li></ul>
+<p>  can invalidate the web session.</p>
+<p><strong>Therefore, decide up front who holds the session:</strong></p>
+<ul><li><strong>Agent-drives (Playwright) mode:</strong> the human must NOT be logged into Spacelift</li></ul>
+<p>  in their own browser while you drive. Tell them to log out (or expect to be   logged out). You hold the single session.</p>
+<ul><li><strong>Human-drives mode:</strong> you do NOT open Spacelift in a browser at all. You do</li></ul>
+<p>  the git/API/file work; the human clicks the Spacelift UI. Never open a   Spacelift session in this mode — you'll evict them.</p>
+<p>Confirm the mode with the human before touching Spacelift.</p>
+<hr>
+<h2>2. EXACT NAMING — use what Spacelift actually generates/expects</h2>
+<p>Do not invent your own parallel names. Spacelift and its tutorials use specific literals; mismatched names are how the human and agent diverge.</p>
+<p><strong>Spacelift auto-generates stack and integration names</strong> — opaque two/three-word handles, e.g.:</p>
+<ul><li>Stacks: <code>Prime Apollo 45</code></li><li>AWS integrations: <code>Viking Terminal AWS</code></li></ul>
+<p>These names encode <strong>nothing</strong> about their repo or role. When the human says "the stack," get its exact name and its tuple (§0) — don't assume.</p>
+<p><strong>The Foundations tutorial uses these literals</strong> (match them exactly):</p>
+<ul><li>Resource: <code>resource "random_pet" "name"</code> (the starter resource)</li><li>Resource: <code>resource "aws_s3_bucket" "orbit_storage"</code> with</li></ul>
+<p>  <code>bucket_prefix = "orbit-storage-"</code></p>
+<ul><li>Data source: <code>data "aws_caller_identity" "current"</code>, output <code>aws_account_id</code></li><li>Suggested IAM role name: <code>spacelift-orbit-labs-role</code></li><li>Tutorial tags: <code>mission = "First Launch"</code>, <code>project = "Orbit-labs"</code>,</li></ul>
+<p>  <code>managedBy = "Spacelift"</code></p>
+<p><strong>AWS OIDC / AssumeRole facts (us.spacelift.io):</strong></p>
+<ul><li>Spacelift principal AWS account: <strong><code>577638371743</code></strong> (EU/spacelift.io:</li></ul>
+<p>  <code>324880187172</code>)</p>
+<ul><li>ExternalId condition: <code>StringLike</code> on <code>sts:ExternalId</code> = <code>&amp;lt;account-name&amp;gt;@*</code></li><li><code>sts:TagSession</code> must be its <strong>own</strong> statement (no ExternalId condition)</li><li>The Role ARN must start with <strong><code>arn:</code></strong> — a missing prefix (<code>aws:iam::…</code>) is a</li></ul>
+<p>  common paste error that surfaces as a (misleading) "trust relationship" error.</p>
+<hr>
+<h2>3. WHERE THE TUTORIAL LIVES</h2>
+<p>After creating a Spacelift account (free trial, sign up <strong>with GitHub</strong>), the in-app tutorials are the <strong>Foundations</strong> guides, reached from <strong>LaunchPad</strong> or the <strong>Assistant panel</strong> on a stack page. The two guides you'll complete:</p>
+<ol><li><strong>Credentials, Not Secrets — AWS Integration</strong> (8 steps) — wire keyless AWS.</li><li><strong>First Launch — Deploy Real Infrastructure</strong> (7 steps) — deploy a real S3</li></ol>
+<p>   bucket, then flip on autodeploy. There is also a <strong>Guardrails — Enforce Policy Rules</strong> guide for policies.</p>
+<p>Each guide step has <strong>Next step</strong> / <strong>Previous step</strong> / <strong>Complete</strong> buttons and a progress bar (e.g. "3/7"). A step often gates on "a new run was triggered on your stack."</p>
+<hr>
+<h2>4. STEP-BY-STEP (what you actually do)</h2>
+<p>Assume the git repo is <code>dkontango/spacelift-gitops-demo</code> (canonical on <strong>Forgejo <code>git.konoss.org/kadmin/spacelift-gitops-demo</code></strong>, push-mirrored to GitHub). Push <strong>only to Forgejo</strong>; verify GitHub caught up with <code>git ls-remote github &amp;lt;branch&amp;gt;</code>.</p>
+<ol><li><strong>Confirm mode + session</strong> (§1) and the <strong>tuple</strong> (§0).</li><li><strong>AWS prerequisites</strong> (one-time): create the OIDC provider + IAM role via</li></ol>
+<p>   <code>bootstrap/</code> OpenTofu (least-priv) or <code>bootstrap-tutorial-role/</code> (the    tutorial's S3+EC2 FullAccess <code>spacelift-orbit-labs-role</code>). Apply with admin    AWS keys pulled from the secrets store; never store static keys in Spacelift.</p>
+<ol><li><strong>Cloud integration:</strong> in Spacelift add the AWS integration with the role ARN.</li></ol>
+<p>   Leave <strong>"Assume role on worker" = No</strong>, <strong>"Enable tag session" = Yes</strong>.    If attach fails with "configure trust relationship": (a) verify the ARN starts    with <code>arn:</code>; (b) wait ~60s for IAM propagation and retry — do NOT rewrite a    correct trust policy chasing a lag.</p>
+<ol><li><strong>Attach the integration to the specific stack</strong> (Stack → Settings →</li></ol>
+<p>   Integrations). "Exists in the account" ≠ "attached to this stack." The error    <code>no valid credential sources for Terraform AWS Provider</code> almost always means    this attachment is missing.</p>
+<ol><li><strong>Confirm the stack's repo/project-root contains the starter code</strong></li></ol>
+<p>   (<code>random_pet</code>, <code>main.tf</code>). If the repo is empty/placeholder, the tutorial's    "edit main.tf" step cannot work and the failure will look like an auth error.</p>
+<ol><li><strong>Follow the Foundations guide steps.</strong> Edit files, commit, push to Forgejo,</li></ol>
+<p>   watch the run. With autodeploy <strong>off</strong>, runs stop at <strong>UNCONFIRMED</strong> for    manual <strong>Confirm</strong> — that's the approval gate, not an error.</p>
+<ol><li><strong>Policies (Guardrails):</strong> create a Plan policy; attach it to the stack. To</li></ol>
+<p>   fill the Rego editor (Monaco) via Playwright, use    <code>page.keyboard.insertText(...)</code> — normal paste/typing corrupts it    (auto-indent/auto-close). Then demonstrate a PR that flips a bucket public →    the policy <strong>denies</strong> it in the PR preview.</p>
+<hr>
+<h2>5. RUN-QUEUE + BUTTON PITFALLS</h2>
+<ul><li>Spacelift runs blocking (tracked) runs <strong>one at a time</strong> per stack. A prior run</li></ul>
+<p>  left at <strong>UNCONFIRMED</strong> blocks new runs. Confirm or Discard it to release the   queue.</p>
+<ul><li><strong>Confirm</strong> and <strong>Discard</strong> sit adjacent and the DOM shifts. Re-locate the</li></ul>
+<p>  exact button immediately before clicking; never click a   constructive/destructive pair from a stale element reference.</p>
+<ul><li>After every <code>git push</code>, verify the remote HEAD (<code>git ls-remote</code>). "Push</li></ul>
+<p>  succeeded" on a diverged local branch does not mean it landed where you think.</p>
+<hr>
+<h2>6. WHAT SUCCESS LOOKS LIKE</h2>
+<ul><li>A run authenticates to AWS via OIDC/AssumeRole and resolves</li></ul>
+<p>  <code>data.aws_caller_identity.current</code> to the account id (no static creds).</p>
+<ul><li>A PR that makes a bucket public is <strong>denied</strong> by the Plan policy in the preview</li></ul>
+<p>  (the check fails on the policy-bearing stack, passes on one without it).</p>
+<ul><li>Merge to the default branch deploys; with autodeploy on, a follow-up push</li></ul>
+<p>  applies without a manual Confirm.</p>
+<p>If you hit an error not covered here, map it to §2–§5 before proposing a fix — the message usually names a symptom, not the cause.</p>
+<div class="footer">Deployed via Spacelift → S3 static website. Source of truth: Forgejo <code>git.konoss.org/kadmin/spacelift-gitops-demo</code>, mirrored to GitHub.</div>
+</main></div></body></html>

@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Onboarding — With AI — Spacelift GitOps Guide</title>
+<link rel="stylesheet" href="assets/style.css">
+</head><body><div class="layout">
+<nav class="sidebar">
+  <p class="brand">Spacelift <span>GitOps</span> Guide</p>
+  <p class="brand-sub">Forgejo → GitHub → Spacelift → AWS</p>
+  <div class="nav-group">Guide</div><a href="index.html">Overview</a><a href="by-hand.html">Onboarding — By Hand</a><a href="with-ai.html" class="active">Onboarding — With AI</a><a href="agents.html">AI Agent Context (AGENTS.md)</a><div class="nav-group">Reference</div><a href="troubleshooting.html">Troubleshooting: AWS creds</a><div class="nav-group">Repo</div><a href="https://github.com/dkontango/spacelift-gitops-demo">GitHub mirror</a><a href="https://git.konoss.org/kadmin/spacelift-gitops-demo">Forgejo (canonical)</a>
+</nav>
+<main class="content">
+<h1>Spacelift Onboarding — With an AI Agent</h1>
+<p>How to complete the same Spacelift GitOps workflow by directing an AI coding agent. There are <strong>two sub-modes</strong>, and choosing correctly up front is the whole game because of Spacelift's single-session limit.</p>
+<blockquote><p><strong>Point your agent at <a href="../AGENTS.md"><code>AGENTS.md</code></a></strong> first — it is the machine- readable context (tuple rules, exact naming, session constraint, step-by-step, pitfalls). This page is the human's operating manual for working alongside it.</p></blockquote>
+<hr>
+<h2>⚠️ Session management decides your mode</h2>
+<p><strong>Spacelift allows only ONE active session at a time</strong> (the login UI shows "Multi-session disabled"). Logging in one place invalidates the others. This directly shapes how you use an agent:</p>
+<table><thead><tr><th>Mode</th><th>Who holds the Spacelift session</th><th>You must…</th></tr></thead><tbody><tr><td><strong>A. Agent drives (Playwright)</strong></td><td>the <strong>agent's</strong> automation browser</td><td><strong>log out</strong> of Spacelift in your own browser; the agent's browser is the single session</td></tr><tr><td><strong>B. Agent assists (no Playwright)</strong></td><td><strong>you</strong> (human), in your browser</td><td>tell the agent <strong>not</strong> to open Spacelift; it does git/API/file work only</td></tr></tbody></table>
+<p>If both you and a Playwright agent try to be logged in, you'll keep evicting each other. Pick one holder of the session.</p>
+<hr>
+<h2>Mode A — Agent drives via Playwright (or equivalent)</h2>
+<p>The agent clicks through the Spacelift and AWS UIs itself using browser automation (Playwright MCP, Puppeteer, Selenium, etc.).</p>
+<p><strong>Setup</strong></p>
+<ol><li>Give the agent <code>AGENTS.md</code>.</li><li><strong>Log yourself out of Spacelift</strong> (Mode A holds the single session).</li><li>Provide the agent access to: the git repo, AWS credentials (ideally via a</li></ol>
+<p>   secrets store, not pasted), and the browser-automation tool.</p>
+<p><strong>What the agent does</strong> (mirrors <code>AGENTS.md</code> §4): create/verify the OIDC role, create the AWS integration, <strong>attach it to the stack</strong>, follow the Foundations guides (edit → push to Forgejo → watch run → Confirm), and attach + demonstrate the Plan policy.</p>
+<p><strong>Playwright-specific tips to give the agent</strong></p>
+<ul><li><strong>Human MFA/OAuth gates:</strong> logging into GitHub/AWS may hit 2FA or a CAPTCHA the</li></ul>
+<p>  agent can't solve. Be ready to complete that one step, or pre-authenticate the   automation browser.</p>
+<ul><li><strong>Monaco (Rego) editor:</strong> normal paste/typing corrupts it (auto-indent/auto-</li></ul>
+<p>  close, or grabs the wrong OS clipboard). The reliable method is   <code>page.keyboard.insertText(...)</code> via the raw Playwright API — set the whole   policy body in one shot, then verify the character count.</p>
+<ul><li><strong>Adjacent Confirm/Discard buttons + shifting DOM:</strong> the agent must re-locate</li></ul>
+<p>  the exact button immediately before clicking; a stale element reference caused   a Confirm-instead-of-Discard slip in our runs.</p>
+<ul><li><strong>Toggles intercept clicks:</strong> styled switches (Autodeploy, Tag session) often</li></ul>
+<p>  reject a direct checkbox click — click the label wrapper, or remove the stray   overlay first.</p>
+<p><strong>Your job in Mode A:</strong> clear human-only gates (MFA), make decisions the agent surfaces (which role, public vs private repo), and sanity-check the tuple it reports.</p>
+<hr>
+<h2>Mode B — Agent assists, human drives the UI (no Playwright)</h2>
+<p>The agent never opens Spacelift. It does the parts it's good at — writing the Terraform/Rego, running git, calling APIs, applying the OIDC bootstrap — and hands <strong>you</strong> precise click instructions for the Spacelift/AWS UI. <strong>You</strong> hold the single Spacelift session.</p>
+<p><strong>Division of labor</strong></p>
+<ul><li><strong>Agent:</strong> authors <code>main.tf</code> changes, the Rego policy, the OIDC bootstrap</li></ul>
+<p>  OpenTofu; runs <code>tofu</code>/<code>git</code>; pushes to Forgejo; verifies the GitHub mirror; and   gives you exact, named steps ("Stack *Prime Apollo 45* → Settings → Integrations   → Attach → select *Viking Terminal AWS*").</p>
+<ul><li><strong>You:</strong> perform each Spacelift/AWS click, then paste back the non-secret result</li></ul>
+<p>  (a Role ARN, a run state, an error) so the agent can proceed.</p>
+<p><strong>Why this is often the better mode:</strong> no session eviction, no CAPTCHA problem, and you build hands-on familiarity for narrating a demo — while the agent removes all the boilerplate (Terraform, Rego, git hygiene, the OIDC trust policy).</p>
+<hr>
+<h2>The kickoff prompt (either mode)</h2>
+<p>Paste this to the agent (it complements <code>AGENTS.md</code>):</p>
+<blockquote><p>"We're onboarding to Spacelift. First state the tuple — stack name, repository, project root, IAM role ARN, cloud-integration name — and confirm the integration is attached to that exact stack and the repo contains the starter code. Tell me whether we're in Mode A (you drive via Playwright — I'll log out of Spacelift) or Mode B (I drive the UI — you never open Spacelift). Use OIDC/AssumeRole, no static keys. us.spacelift.io principal is 577638371743; the role trust policy needs a separate TagSession statement; verify the Role ARN starts with <code>arn:</code>. If you hit 'no valid credential sources', check per-stack attachment first. If you hit 'configure trust relationship', check the ARN shape and wait 60s for IAM propagation before editing the trust policy. Push only to Forgejo and verify GitHub mirrored. Report the tuple and the remote HEAD after every push."</p></blockquote>
+<hr>
+<h2>Pitfalls unique to AI-assisted onboarding (why this guide exists)</h2>
+<p>Every one of these actually happened while building this repo:</p>
+<ol><li><strong>Two universes.</strong> The human's stack watched an empty placeholder repo while</li></ol>
+<p>   the agent's code lived in a different repo. Nothing converged until the tuple    was pinned. → Always agree the <code>(stack, repo, project-root, role, integration)</code>    tuple.</p>
+<ol><li><strong>"The integration is attached"</strong> was true for one stack, not the one being</li></ol>
+<p>   pushed to → <code>no valid credential sources</code>. → Verify per-stack attachment.</p>
+<ol><li><strong>Console login mistaken for API keys.</strong> An email+password can't drive the CLI.</li></ol>
+<p>   → Verify credential *format*; mint real <code>AKIA…</code> keys or use OIDC.</p>
+<ol><li><strong>Malformed Role ARN</strong> (<code>aws:iam::…</code> missing <code>arn:</code>) surfaced as a "trust</li></ol>
+<p>   relationship" error. → Check the ARN shape first.</p>
+<ol><li><strong>IAM propagation lag</strong> made a correct role fail attach for ~1 minute. → Retry,</li></ol>
+<p>   don't rewrite.</p>
+<ol><li><strong>Monaco editor</strong> resisted paste. → <code>insertText</code>.</li><li><strong>Run-queue serialization</strong> blocked new runs behind a stale UNCONFIRMED run. →</li></ol>
+<p>   Confirm/Discard the blocker.</p>
+<ol><li><strong>Diverged local branch</strong> made "push succeeded" a lie. → Verify remote HEAD.</li></ol>
+<p>Full narratives: <a href="tutorial-incident-log.md"><code>tutorial-incident-log.md</code></a> and <a href="troubleshooting-case-study.md"><code>troubleshooting-case-study.md</code></a>.</p>
+<div class="footer">Deployed via Spacelift → S3 static website. Source of truth: Forgejo <code>git.konoss.org/kadmin/spacelift-gitops-demo</code>, mirrored to GitHub.</div>
+</main></div></body></html>

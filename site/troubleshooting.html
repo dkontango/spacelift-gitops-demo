@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Troubleshooting: AWS creds — Spacelift GitOps Guide</title>
+<link rel="stylesheet" href="assets/style.css">
+</head><body><div class="layout">
+<nav class="sidebar">
+  <p class="brand">Spacelift <span>GitOps</span> Guide</p>
+  <p class="brand-sub">Forgejo → GitHub → Spacelift → AWS</p>
+  <div class="nav-group">Guide</div><a href="index.html">Overview</a><a href="by-hand.html">Onboarding — By Hand</a><a href="with-ai.html">Onboarding — With AI</a><a href="agents.html">AI Agent Context (AGENTS.md)</a><div class="nav-group">Reference</div><a href="troubleshooting.html" class="active">Troubleshooting: AWS creds</a><div class="nav-group">Repo</div><a href="https://github.com/dkontango/spacelift-gitops-demo">GitHub mirror</a><a href="https://git.konoss.org/kadmin/spacelift-gitops-demo">Forgejo (canonical)</a>
+</nav>
+<main class="content">
+<h1>Troubleshooting: "no valid credential sources for Terraform AWS Provider found"</h1>
+<p><strong>Error seen during a deployment:</strong></p>
+<pre><code>configuring Terraform AWS Provider: no valid credential sources for Terraform
+AWS Provider found.</code></pre>
+<p>This runbook explains what the error means and walks through every way to fix it in Spacelift, best-practice first.</p>
+<blockquote><p><strong>Note on the wording.</strong> The message says *"Terraform AWS Provider"* even when your stack uses <strong>OpenTofu</strong>. That string comes from the AWS *provider* itself (<code>hashicorp/aws</code>), which both Terraform and OpenTofu use — so the message and the fixes are identical regardless of which tool your stack runs.</p></blockquote>
+<hr>
+<h2>1. What the error actually means</h2>
+<p>The AWS provider could not find credentials. It is not a network, permissions, or Terraform/OpenTofu bug — the run reached the point of configuring the AWS provider, looked through its credential sources, and found <strong>nothing</strong> to authenticate with.</p>
+<p>The AWS provider resolves credentials in this order and uses the first source it finds:</p>
+<ol><li><strong>Static keys</strong> — <code>AWS_ACCESS_KEY_ID</code> / <code>AWS_SECRET_ACCESS_KEY</code></li></ol>
+<p>   (+ optional <code>AWS_SESSION_TOKEN</code>) in the environment, or provider block args.</p>
+<ol><li><strong>Shared config/credentials files</strong> — <code>~/.aws/credentials</code>, <code>~/.aws/config</code></li></ol>
+<p>   (honoring <code>AWS_PROFILE</code>).</p>
+<ol><li><strong>Assumed role / web identity</strong> — <code>AWS_ROLE_ARN</code> + a web-identity token file</li></ol>
+<p>   (<code>AWS_WEB_IDENTITY_TOKEN_FILE</code>), i.e. OIDC federation.</p>
+<ol><li><strong>Instance/container metadata</strong> — EC2 instance profile, ECS task role, etc.</li></ol>
+<p>A Spacelift run executes on a <strong>worker</strong>, in a <strong>fresh container</strong>, in the <strong>cloud</strong> — it does not inherit your laptop's <code>~/.aws</code> or your shell's env vars. So unless you have *explicitly* given the run one of the sources above, the provider finds none and throws this error. <strong>The fix is to attach a credential source to the stack.</strong> There are three ways, below.</p>
+<hr>
+<h2>2. Fix A — AWS Cloud Integration with OIDC (recommended)</h2>
+<p>This is the modern, keyless approach: <strong>no long-lived AWS keys anywhere.</strong> On each run, Spacelift presents a short-lived OIDC token; AWS STS exchanges it for temporary credentials via an IAM role's trust policy. This is what feeds source</p>
+<p>#3 (web identity) in the resolution chain above.</p>
+<p>Set it up once:</p>
+<p><strong>Step 1 — Register Spacelift as an OIDC provider in AWS.</strong> IAM → Identity providers → Add provider → OpenID Connect.</p>
+<ul><li><strong>Provider URL:</strong> <code>https://&amp;lt;account&amp;gt;.app.spacelift.io</code></li></ul>
+<p>  (US region: <code>https://&amp;lt;account&amp;gt;.app.us.spacelift.io</code>)</p>
+<ul><li><strong>Audience:</strong> the same URL.</li><li>Click <strong>Get thumbprint</strong>.</li></ul>
+<p><strong>Step 2 — Create an IAM role Spacelift can assume.</strong> Trust policy:</p>
+<pre><code>{
+  "Version": "2012-10-17",
+  "Statement": [{
+    "Effect": "Allow",
+    "Principal": {
+      "Federated": "arn:aws:iam::&lt;ACCOUNT_ID&gt;:oidc-provider/&lt;account&gt;.app.spacelift.io"
+    },
+    "Action": ["sts:AssumeRoleWithWebIdentity", "sts:TagSession"],
+    "Condition": {
+      "StringEquals": {
+        "&lt;account&gt;.app.spacelift.io:aud": "https://&lt;account&gt;.app.spacelift.io"
+      },
+      "StringLike": {
+        "&lt;account&gt;.app.spacelift.io:sub": "space:*:stack:*:run_type:*:scope:*"
+      }
+    }
+  }]
+}</code></pre>
+<p>Attach a permissions policy scoped to what the stack manages (least privilege).</p>
+<p><strong>Step 3 — Create the Cloud Integration in Spacelift.</strong> Settings → Cloud integrations → AWS → Add. Paste the <strong>role ARN</strong>. Enable OIDC.</p>
+<p><strong>Step 4 — Attach the integration to the stack.</strong> Stack → Settings → Integrations → attach the AWS integration. (This is the step most often missed: creating the integration is not enough — it must be *attached* to each stack that needs it.)</p>
+<p>Re-run. The provider now finds web-identity credentials (source #3) and authenticates.</p>
+<p>*In this repo, all of the above (provider + role + least-privilege policy) is codified in <a href="../bootstrap"><code>bootstrap/</code></a> as OpenTofu — the role ARN it outputs is what you paste in Step 3.*</p>
+<hr>
+<h2>3. Fix B — static access keys via environment variables / a Context</h2>
+<p>The quick, less secure option — supplies source #1. Use only when OIDC isn't possible (it stores a long-lived secret).</p>
+<ul><li><strong>Per stack:</strong> Stack → Environment → add variables</li></ul>
+<p>  <code>AWS_ACCESS_KEY_ID</code>, <code>AWS_SECRET_ACCESS_KEY</code> (mark them <strong>secret</strong>), and   <code>AWS_DEFAULT_REGION</code>.</p>
+<ul><li><strong>Shared across stacks:</strong> create a <strong>Context</strong> with those variables and attach</li></ul>
+<p>  it to each stack (Settings → Contexts).</p>
+<p>Re-run. Downsides: the keys are long-lived, must be rotated manually, and live in Spacelift. Prefer Fix A.</p>
+<hr>
+<h2>4. Fix C — IAM role assumption from a base credential</h2>
+<p>If your organization issues a base set of keys/role that must then assume a target role, set (via stack env or a Context):</p>
+<pre><code>AWS_ROLE_ARN=arn:aws:iam::&lt;ACCOUNT_ID&gt;:role/&lt;target-role&gt;</code></pre>
+<p>together with a base credential (static keys, or the OIDC integration from Fix A as the base). The provider then performs the role assumption (source #3). This is common for cross-account setups.</p>
+<hr>
+<h2>5. If credentials *are* configured but you still see the error</h2>
+<p>Work down this checklist:</p>
+<ul><li><strong>Integration not attached to the stack.</strong> Creating the AWS Cloud Integration</li></ul>
+<p>  is not enough — attach it to the stack (Fix A, Step 4). This is the #1 cause.</p>
+<ul><li><strong>Wrong <code>aud</code>/<code>sub</code> in the trust policy.</strong> The <code>aud</code> must equal your account</li></ul>
+<p>  URL; the <code>sub</code> <code>StringLike</code> must match the run</p>
+<p>  (<code>space:&amp;lt;space&amp;gt;:stack:&amp;lt;stack&amp;gt;:run_type:&amp;lt;type&amp;gt;:scope:&amp;lt;read|write&amp;gt;</code>). A too-tight   <code>sub</code> blocks <code>AssumeRoleWithWebIdentity</code>, surfacing as no valid credentials.</p>
+<ul><li><strong>Secret env vars not marked secret / typo'd names.</strong> They must be exactly</li></ul>
+<p>  <code>AWS_ACCESS_KEY_ID</code> and <code>AWS_SECRET_ACCESS_KEY</code>.</p>
+<ul><li><strong>Private worker without an instance profile.</strong> If you run your own worker</li></ul>
+<p>  pool and rely on instance metadata (source #4), confirm the worker's   EC2/ECS role actually exists and is attached.</p>
+<ul><li><strong>Region missing.</strong> Some provider/back-end configs fail early without</li></ul>
+<p>  <code>AWS_DEFAULT_REGION</code> or a <code>region</code> in the provider block.</p>
+<hr>
+<h2>6. How to verify the fix</h2>
+<ol><li>Trigger a run and open its logs. The <strong>Initializing</strong> phase should configure</li></ol>
+<p>   the AWS provider <strong>without</strong> the credential error.</p>
+<ol><li>Add a one-off check to confirm *which* identity the run assumed — a</li></ol>
+<p>   <code>before_plan</code> hook or a quick task:    ``<code>    aws sts get-caller-identity    </code>`<code>    With OIDC you'll see the assumed-role ARN    (</code>arn:aws:sts::&lt;ACCOUNT_ID&gt;:assumed-role/&lt;role&gt;/&lt;session&gt;`), proving the    web-identity exchange worked and no static key was used.</p>
+<ol><li>The plan should now read live AWS state instead of failing at provider</li></ol>
+<p>   configuration.</p>
+<p><strong>Bottom line:</strong> the error means the run had no credential source. Give the stack one — ideally the keyless <strong>AWS Cloud Integration (OIDC)</strong> — and make sure it's <strong>attached to the stack</strong>.</p>
+<div class="footer">Deployed via Spacelift → S3 static website. Source of truth: Forgejo <code>git.konoss.org/kadmin/spacelift-gitops-demo</code>, mirrored to GitHub.</div>
+</main></div></body></html>
