@@ -17,6 +17,7 @@ SITE = os.path.join(ROOT, "site")
 # (nav label, output filename, source markdown or None for the hand-written index)
 PAGES = [
     ("Overview", "index.html", None),
+    ("Illustrated Walkthrough", "walkthrough.html", "docs/illustrated-walkthrough.md"),
     ("Onboarding — By Hand", "by-hand.html", "docs/onboarding-by-hand.md"),
     ("Onboarding — With AI", "with-ai.html", "docs/onboarding-with-ai.md"),
     ("AI Agent Context (AGENTS.md)", "agents.html", "AGENTS.md"),
@@ -39,6 +40,8 @@ def md_to_html(md: str) -> str:
             codes.append(m.group(1))
             return f"\x00{len(codes)-1}\x00"
         t = re.sub(r"`([^`]+)`", stash, t)
+        # images ![alt](src) — before links (same bracket syntax)
+        t = re.sub(r"!\[([^\]]*)\]\(([^)]+)\)", r'<img src="\2" alt="\1" loading="lazy">', t)
         # links [text](url)
         t = re.sub(r"\[([^\]]+)\]\(([^)]+)\)", r'<a href="\2">\1</a>', t)
         # bold
@@ -99,6 +102,18 @@ def md_to_html(md: str) -> str:
         # horizontal rule
         if re.match(r"^---+\s*$", line):
             out.append("<hr>"); i += 1; continue
+
+        # standalone image line -> figure (optional *italic caption* on next line)
+        im = re.match(r"^!\[([^\]]*)\]\(([^)]+)\)\s*$", line)
+        if im:
+            alt, src = im.group(1), im.group(2)
+            i += 1
+            cap = ""
+            if i < n and re.match(r"^\*[^*].*\*\s*$", lines[i]):
+                cap = f"<figcaption>{inline(lines[i].strip().strip('*'))}</figcaption>"
+                i += 1
+            out.append(f'<figure><img src="{html.escape(src)}" alt="{html.escape(alt)}" loading="lazy">{cap}</figure>')
+            continue
 
         # unordered list
         if re.match(r"^\s*[-*]\s+", line):

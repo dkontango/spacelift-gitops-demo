@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Illustrated Walkthrough — Spacelift GitOps Guide</title>
+<link rel="stylesheet" href="assets/style.css">
+</head><body><div class="layout">
+<nav class="sidebar">
+  <p class="brand">Spacelift <span>GitOps</span> Guide</p>
+  <p class="brand-sub">Forgejo → GitHub → Spacelift → AWS</p>
+  <div class="nav-group">Guide</div><a href="index.html">Overview</a><a href="walkthrough.html" class="active">Illustrated Walkthrough</a><a href="by-hand.html">Onboarding — By Hand</a><a href="with-ai.html">Onboarding — With AI</a><div class="nav-group">Reference</div><a href="agents.html">AI Agent Context (AGENTS.md)</a><a href="troubleshooting.html">Troubleshooting: AWS creds</a><div class="nav-group">Repo</div><a href="https://github.com/dkontango/spacelift-gitops-demo">GitHub mirror</a><a href="https://git.konoss.org/kadmin/spacelift-gitops-demo">Forgejo (canonical)</a>
+</nav>
+<main class="content">
+<h1>Illustrated Walkthrough — Every Step, With Screenshots</h1>
+<p>A screenshot for each step of the whole GitOps workflow: AWS setup, the Spacelift integration, creating a stack, deploying, and the OPA policy blocking a bad change in a pull request.</p>
+<blockquote><p><strong>Note on redaction.</strong> Live screenshots have their AWS <strong>account IDs</strong> and <strong>ARNs</strong> blacked out (<code>████</code>). The AWS-console steps (2–4) are shown as faithful <strong>labeled diagrams</strong> rather than live console captures — the steps and exact values are accurate. Everything on the Spacelift side is a real, redacted screenshot from the account used to build this demo.</p></blockquote>
+<hr>
+<h2>The pipeline</h2>
+<figure><img src="assets/steps/step-00-architecture.png" alt="Architecture: Forgejo to GitHub to Spacelift to AWS" loading="lazy"><figcaption>Push only to Forgejo → it mirrors to GitHub → Spacelift previews every PR → an OPA policy guards it → keyless OIDC deploys to AWS.</figcaption></figure>
+<h2>Step 1 — Where the tutorial lives</h2>
+<figure><img src="assets/steps/step-01-stacks-overview.png" alt="Spacelift Stacks page with the Foundations guides panel" loading="lazy"><figcaption>After signing up (with GitHub), the in-app <strong>Foundations</strong> guides appear in the Assistant panel / LaunchPad. The <strong>Stacks</strong> page lists your stacks.</figcaption></figure>
+<h2>Step 2 — Register Spacelift as an OIDC provider (AWS)</h2>
+<figure><img src="assets/steps/step-02-aws-oidc-provider.png" alt="AWS IAM: add OpenID Connect identity provider" loading="lazy"><figcaption>IAM → Identity providers → Add provider → OpenID Connect. Provider URL and audience are your Spacelift account URL. This is what makes AWS trust Spacelift's tokens — the basis of keyless auth.</figcaption></figure>
+<h2>Step 3 — Create the IAM role Spacelift assumes (AWS)</h2>
+<figure><img src="assets/steps/step-03-aws-create-role.png" alt="AWS IAM: create role spacelift-orbit-labs-role" loading="lazy"><figcaption>Create <code>spacelift-orbit-labs-role</code> with a trust policy allowing <code>sts:AssumeRole</code> from Spacelift's principal (ExternalId <code>&amp;lt;account&amp;gt;@*</code>) plus a separate <code>sts:TagSession</code> statement. Copy the Role ARN — it must start with <code>arn:</code>.</figcaption></figure>
+<h2>Step 4 — Attach permissions to the role (AWS)</h2>
+<figure><img src="assets/steps/step-04-aws-attach-policies.png" alt="AWS IAM: attach AmazonS3FullAccess and AmazonEC2FullAccess" loading="lazy"><figcaption>Attach <code>AmazonS3FullAccess</code> + <code>AmazonEC2FullAccess</code> (the tutorial's broad choice). For real accounts, a least-privilege scoped policy is safer.</figcaption></figure>
+<h2>Step 5 — Create the AWS cloud integration in Spacelift</h2>
+<figure><img src="assets/steps/step-05-aws-integration-dialog.png" alt="Spacelift: Set up AWS integration dialog" loading="lazy"><figcaption>Integrations → AWS → Set up integration. Paste the <strong>Role ARN</strong>, leave <strong>Assume role on worker = No</strong>, set <strong>Enable tag session = Yes</strong>, region <code>us-east-1</code>. The trust-policy example is shown (principal account redacted).</figcaption></figure>
+<h2>Step 6 — The integration exists at the account level</h2>
+<figure><img src="assets/steps/step-06-aws-integrations-list.png" alt="Spacelift: AWS integrations list" loading="lazy"><figcaption>The integration now appears in the account. <strong>Important:</strong> existing at the account level is not enough — it must be attached to each stack (Step 10).</figcaption></figure>
+<h2>Step 7 — Create a stack: details</h2>
+<figure><img src="assets/steps/step-07-create-stack-details.png" alt="Spacelift: create stack — add stack details" loading="lazy"><figcaption>Stacks → Create stack. Name it and choose a space. (Spacelift also auto-generates opaque names like "Prime Apollo 45" elsewhere — track the full repo/role tuple, not just the name.)</figcaption></figure>
+<h2>Step 8 — Create a stack: connect source code</h2>
+<figure><img src="assets/steps/step-08-create-stack-source.png" alt="Spacelift: create stack — connect to source code" loading="lazy"><figcaption>Pick GitHub → your repository → set the <strong>Project root</strong> (e.g. <code>stacks/sandbox</code>) and branch <code>main</code>. Because Forgejo mirrors to GitHub, this is the repo Spacelift watches.</figcaption></figure>
+<h2>Step 9 — Create a stack: choose vendor</h2>
+<figure><img src="assets/steps/step-09-create-stack-vendor.png" alt="Spacelift: create stack — choose vendor OpenTofu" loading="lazy"><figcaption>Choose <strong>OpenTofu / Terraform</strong> (workflow tool: OpenTofu), a recent version, with <strong>Manage state</strong> on. Create &amp; continue.</figcaption></figure>
+<h2>Step 10 — Attach the integration TO the stack</h2>
+<figure><img src="assets/steps/step-10-integration-attached-to-stack.png" alt="Spacelift: AWS integration attached to the stack" loading="lazy"><figcaption>Stack → Settings → Integrations → attach the AWS integration (Read + Write). This is the step people miss — <code>no valid credential sources</code> almost always means the integration isn't attached <strong>to this stack</strong>. (ARN redacted.)</figcaption></figure>
+<h2>Step 11 — The OPA policy (the bonus)</h2>
+<figure><img src="assets/steps/step-11-policy-body.png" alt="Spacelift: plan-block-public-s3 policy body in Rego" loading="lazy"><figcaption>A <strong>Plan policy</strong> in Rego that denies any change disabling an S3 bucket's public-access-block. Policy-as-code: version-controlled, unit-tested, attached to the stack.</figcaption></figure>
+<h2>Step 12 — Attach the policy to the stack</h2>
+<figure><img src="assets/steps/step-12-policy-attached.png" alt="Spacelift: policy attached to the stack" loading="lazy"><figcaption>The <code>plan-block-public-s3</code> Plan policy attached to the stack. It now runs on every proposed run (PR preview).</figcaption></figure>
+<h2>Step 13 — Deploy: a finished run</h2>
+<figure><img src="assets/steps/step-13-deploy-finished.png" alt="Spacelift: run finished, apply complete, website endpoint output" loading="lazy"><figcaption>A confirmed run applies via OpenTofu and finishes. Here the <code>guide-site</code> stack deployed the guide itself to S3 — the guide is deployed by the pipeline it documents.</figcaption></figure>
+<h2>Step 14 — The guardrail in action: PR blocked</h2>
+<figure><img src="assets/steps/step-14-pr-policy-fail.png" alt="GitHub PR: Spacelift check failing due to policy" loading="lazy"><figcaption>A PR that flips a bucket public. Spacelift previews it and the check <strong>fails</strong> on the policy-bearing stack (and passes on one without the policy) — visible right on the GitHub PR.</figcaption></figure>
+<h2>Step 15 — Why it failed: the policy denial</h2>
+<figure><img src="assets/steps/step-15-policy-deny-detail.png" alt="Spacelift: run FAILED, denied by plan policy with message" loading="lazy"><figcaption>The run is FAILED with the policy's own message: "S3 public access is not allowed … Set make_public = false." Caught in the preview, before merge.</figcaption></figure>
+<h2>Step 16 — Fix it: the PR passes</h2>
+<figure><img src="assets/steps/step-16-pr-pass-after-fix.png" alt="GitHub PR: checks pass after the fix" loading="lazy"><figcaption>Push the fix (keep the bucket private) → Spacelift re-previews → the check passes → merge deploys. The developer got specific, immediate feedback and corrected the change before it shipped.</figcaption></figure>
+<hr>
+<h2>What this proves</h2>
+<p>Branch → PR → <strong>Spacelift preview</strong> → <strong>policy blocks a risky change</strong> → fix → approve/merge → <strong>deploy</strong> — the full GitOps loop with keyless credentials and a policy-as-code guardrail, driven from an on-prem Forgejo repo mirrored to GitHub.</p>
+<div class="footer">Deployed via Spacelift → S3 static website. Source of truth: Forgejo <code>git.konoss.org/kadmin/spacelift-gitops-demo</code>, mirrored to GitHub.</div>
+</main></div></body></html>
