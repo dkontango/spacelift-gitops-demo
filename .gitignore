@@ -25,3 +25,9 @@ docs/recording/frames/1*-wizard-*.png
 docs/recording/frames/12-wizard-step2.png
 docs/recording/frames/11-wizard-step1.png
 docs/recording/frames/13-wizard-counter-fixed.png
+
+# Go build artifacts
+contact-service/contact-service
+/contact-service/contact-service
+# more recording QA scratch
+docs/recording/build/qa-*.png

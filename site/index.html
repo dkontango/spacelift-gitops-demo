@@ -34,5 +34,90 @@
 <h2>The workflow, in one line</h2>
 <p>Push <strong>only to Forgejo</strong> → the push-mirror propagates to GitHub → Spacelift previews every PR → an <strong>OPA Plan policy</strong> blocks a public S3 bucket in the preview → merge deploys to AWS via <strong>keyless OIDC</strong>.</p>
 
+<h2 id="why-spacelift">Why a vendor-agnostic tool for end-to-end CI/CD</h2>
+<p>The demo happens to use OpenTofu and AWS, but the reason to reach for <a href="https://spacelift.io/" target="_blank" rel="noopener">Spacelift</a> is that it doesn't lock you to either. Traditional pipelines were built for application code; infrastructure needs a system that understands <em>state</em>. As Spacelift puts it, <a href="https://spacelift.io/" target="_blank" rel="noopener">"Traditional CI/CD doesn't work for infrastructure"</a> — you want <a href="https://spacelift.io/" target="_blank" rel="noopener">"workflows that understand state, not hacked-together jobs and scripts."</a></p>
+
+<div class="cards">
+  <div class="card"><h3>One orchestrator, every tool</h3><p>Spacelift advertises <a href="https://spacelift.io/" target="_blank" rel="noopener">"first-class support for Terraform, OpenTofu, CloudFormation, Pulumi, and Kubernetes"</a> (plus Terragrunt and Ansible). The same PR-preview → policy → deploy loop shown here works whichever IaC you standardize on — no rewrite when the tool changes.</p></div>
+  <div class="card"><h3>Understands your infrastructure</h3><p><a href="https://spacelift.io/" target="_blank" rel="noopener">"Spacelift understands your stacks, dependencies, state, and resources, giving you one place to manage every part of your infrastructure pipeline."</a> That's the difference between orchestration and a pile of CI jobs.</p></div>
+  <div class="card"><h3>Policy as code, across the board</h3><p><a href="https://spacelift.io/" target="_blank" rel="noopener">"Define OPA-based policies for plans, approvals, notifications, and security controls."</a> The <code>plan-block-public-s3</code> guardrail in this demo is exactly that — a Rego Plan policy that blocks a risky change in the PR preview.</p></div>
+  <div class="card"><h3>Speed <em>and</em> control</h3><p>Spacelift's own framing: <a href="https://spacelift.io/" target="_blank" rel="noopener">"The speed developers demand. The control platform teams require."</a> Self-service <a href="https://spacelift.io/" target="_blank" rel="noopener">"Golden Paths via Blueprints, not Confluence pages"</a>, with <a href="https://spacelift.io/" target="_blank" rel="noopener">"guardrails enforced by policy as code."</a></p></div>
+</div>
+
+<blockquote>
+<p><strong>The headline</strong>, in Spacelift's words: <a href="https://spacelift.io/" target="_blank" rel="noopener">"Ship infrastructure as fast as developers code"</a> — <a href="https://spacelift.io/" target="_blank" rel="noopener">"Spacelift fuses AI, IaC, and GitOps pipelines, so developers ship fast, and platform teams stay in control."</a></p>
+</blockquote>
+
+<p style="color:var(--muted); font-size:14px;">Quoted phrases above are Spacelift's own marketing language, from <a href="https://spacelift.io/" target="_blank" rel="noopener">spacelift.io</a> and its <a href="https://spacelift.io/pricing" target="_blank" rel="noopener">pricing page</a>, cited here to keep this value proposition consistent with the vendor's. Drift detection and stack dependencies referenced in the demo are Starter+ features per that pricing page.</p>
+
+<h2 id="contact">Contact us</h2>
+<p>Questions about this demo, or about running Spacelift for your own end-to-end CI/CD? Drop your email and we'll send a confirmation and follow up. The form validates your address and a small self-hosted service relays a real email through our own SMTP — the same kind of policy-gated, end-to-end plumbing this demo is about.</p>
+
+<form id="contact-form" class="contact-form" novalidate>
+  <div class="cf-row">
+    <label for="cf-name">Name</label>
+    <input id="cf-name" name="name" type="text" autocomplete="name" maxlength="120" placeholder="Your name">
+  </div>
+  <div class="cf-row">
+    <label for="cf-email">Email <span class="cf-req">*</span></label>
+    <input id="cf-email" name="email" type="email" autocomplete="email" required maxlength="254" placeholder="you@company.com">
+    <small class="cf-err" id="cf-email-err" hidden>Please enter a valid email address.</small>
+  </div>
+  <div class="cf-row">
+    <label for="cf-message">Message</label>
+    <textarea id="cf-message" name="message" rows="3" maxlength="2000" placeholder="Optional — what would you like to know?"></textarea>
+  </div>
+  <input type="text" name="website" id="cf-website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0">
+  <div class="cf-actions">
+    <button type="submit" id="cf-submit" class="cf-btn">Send</button>
+    <span class="cf-status" id="cf-status" role="status" aria-live="polite"></span>
+  </div>
+</form>
+
+<script>
+(function(){
+  // Public endpoint of the self-hosted Go contact-service (SMTP relay behind it).
+  var CONTACT_ENDPOINT = "https://spacelift-demo-contact.kontango.net/contact";
+  var form = document.getElementById('contact-form');
+  if (!form) return;
+  var emailEl = document.getElementById('cf-email');
+  var emailErr = document.getElementById('cf-email-err');
+  var statusEl = document.getElementById('cf-status');
+  var btn = document.getElementById('cf-submit');
+  // Same practical format the server uses, so client + server agree.
+  var RE = /^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$/;
+
+  function validEmail(v){ return v.length <= 254 && RE.test(v); }
+  function setStatus(msg, kind){ statusEl.textContent = msg; statusEl.className = 'cf-status' + (kind ? ' cf-'+kind : ''); }
+
+  emailEl.addEventListener('input', function(){
+    if (!emailEl.value || validEmail(emailEl.value.trim())) { emailErr.hidden = true; emailEl.classList.remove('cf-invalid'); }
+  });
+
+  form.addEventListener('submit', function(e){
+    e.preventDefault();
+    var email = emailEl.value.trim();
+    if (!validEmail(email)) { emailErr.hidden = false; emailEl.classList.add('cf-invalid'); emailEl.focus(); return; }
+    if (CONTACT_ENDPOINT.indexOf('__') === 0) { setStatus('Contact endpoint is not configured yet.', 'err'); return; }
+    btn.disabled = true; setStatus('Sending…', '');
+    fetch(CONTACT_ENDPOINT, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        email: email,
+        name: document.getElementById('cf-name').value.trim(),
+        message: document.getElementById('cf-message').value.trim(),
+        website: document.getElementById('cf-website').value
+      })
+    }).then(function(r){ return r.json().then(function(j){ return {ok:r.ok, j:j}; }); })
+      .then(function(res){
+        if (res.ok) { form.reset(); setStatus(res.j.message || 'Thanks — a confirmation email is on its way.', 'ok'); }
+        else { setStatus(res.j.error || 'Something went wrong. Please try again.', 'err'); }
+      })
+      .catch(function(){ setStatus('Network error — could not reach the contact service.', 'err'); })
+      .finally(function(){ btn.disabled = false; });
+  });
+})();
+</script>
+
 <div class="footer">Deployed via Spacelift → S3 static website. Source of truth: Forgejo <code>git.konoss.org/kadmin/spacelift-gitops-demo</code>, mirrored to GitHub.</div>
 </main></div></body></html>

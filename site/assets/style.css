@@ -91,6 +91,27 @@ figcaption{color:var(--muted); font-size:13.5px; margin-top:8px; text-align:cent
   .wiz-progress{margin:14px 8px 0}
 }
 
+/* --- Contact form --- */
+.contact-form{background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:22px 24px; margin:18px 0; max-width:560px}
+.cf-row{display:flex; flex-direction:column; margin:0 0 14px}
+.cf-row label{font-size:14px; color:#cdd9ee; margin:0 0 6px}
+.cf-req{color:var(--accent)}
+.contact-form input[type=text],.contact-form input[type=email],.contact-form textarea{
+  background:var(--code-bg); color:var(--text); border:1px solid var(--border); border-radius:8px;
+  padding:10px 12px; font-size:15px; font-family:inherit; width:100%}
+.contact-form input:focus,.contact-form textarea:focus{outline:none; border-color:var(--accent); box-shadow:0 0 0 2px rgba(110,168,254,.25)}
+.contact-form textarea{resize:vertical; min-height:64px}
+.contact-form input.cf-invalid{border-color:#e06a6a; box-shadow:0 0 0 2px rgba(224,106,106,.25)}
+.cf-err{color:#f0a3a3; font-size:13px; margin-top:6px}
+.cf-actions{display:flex; align-items:center; gap:14px; margin-top:4px}
+.cf-btn{background:var(--accent); color:#0b1020; font-weight:700; border:none; border-radius:8px;
+  padding:10px 22px; font-size:15px; cursor:pointer; transition:filter .15s}
+.cf-btn:hover{filter:brightness(1.08)}
+.cf-btn:disabled{opacity:.55; cursor:default}
+.cf-status{font-size:14px}
+.cf-status.cf-ok{color:var(--accent2)}
+.cf-status.cf-err{color:#f0a3a3}
+
 .footer{color:var(--muted); font-size:13px; margin-top:48px; padding-top:20px; border-top:1px solid var(--border)}
 @media (max-width:820px){
   .layout{flex-direction:column}

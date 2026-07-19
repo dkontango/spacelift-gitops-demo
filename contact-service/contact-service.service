@@ -1,0 +1,31 @@
+# systemd unit for the contact-service on a schmutz-agent host.
+#
+# The schmutz agent maintains a short-lived Bao token at /run/bao-token; the
+# service reads SMTP creds from Bao using it (BAO_TOKEN_FILE), so no secrets
+# live on disk or in this unit. Install to /etc/systemd/system/ and drop the
+# non-secret env into /etc/contact-service.env.
+[Unit]
+Description=Spacelift GitOps demo — contact form SMTP relay
+After=network-online.target schmutz-agent.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Non-secret config (LISTEN_ADDR, ALLOWED_ORIGIN, FROM_ADDR, BAO_ADDR, ...).
+EnvironmentFile=/etc/contact-service.env
+# The agent-maintained token; the binary reads it at startup.
+Environment=BAO_TOKEN_FILE=/run/bao-token
+ExecStart=/usr/local/bin/contact-service
+Restart=on-failure
+RestartSec=3
+# hardening
+DynamicUser=yes
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+# allow reading the agent token
+ReadOnlyPaths=/run/bao-token
+
+[Install]
+WantedBy=multi-user.target
