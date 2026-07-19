@@ -64,7 +64,7 @@
       img.src = s.img; img.alt = s.title;
       title.innerHTML = s.title;
       cap.innerHTML = s.cap;
-      counter.textContent = 'Step '+(idx+1)+' / '+total;
+      counter.textContent = (idx+1)+' / '+total;
       bar.style.width = ((idx+1)/total*100)+'%';
       for (var i=0;i<dots.length;i++){ dots[i].classList.toggle('active', i===idx); }
       requestAnimationFrame(function(){ slide.classList.add('show'); });
