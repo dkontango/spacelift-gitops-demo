@@ -68,6 +68,9 @@ Plus, beyond the ask:
 | [`docs/recording-script.md`](docs/recording-script.md) | Scene-by-scene script for the demo video. |
 | [`docs/spacelift-setup.md`](docs/spacelift-setup.md) | Reproducible setup runbook (account, stacks, OIDC, policies). |
 | [`docs/build-journey.md`](docs/build-journey.md) | **Honest build log** — how this was set up (AI-agent-driven), the real blockers hit, and the SE takeaways. |
+| [`AGENTS.md`](AGENTS.md) | **AI-agent context file** — point your agent at this. Tuple rule, exact Spacelift naming, the one-session constraint, step-by-step, pitfalls. |
+| [`docs/onboarding-by-hand.md`](docs/onboarding-by-hand.md), [`docs/onboarding-with-ai.md`](docs/onboarding-with-ai.md) | The comprehensive onboarding guide — **by hand** and **with an AI agent** (Playwright vs no-Playwright). Rendered as a static site (`site/`). |
+| [`stacks/guide-site/`](stacks/guide-site) | OpenTofu that deploys the guide `site/` as an **S3 static website — via Spacelift itself**. The guide is deployed by the pipeline it documents. Repo stays private; the site is public. |
 | [`docs/recording/`](docs/recording) | **The movie:** `workflow.mp4` (Forgejo→GitHub→Spacelift with a live OPA policy block) + `narration-script.md` keyed to each frame + the source `frames/`. |
 | [`docs/using-an-ai-agent-guide.md`](docs/using-an-ai-agent-guide.md) | **Explicit runbook** for onboarding to Spacelift *with an AI agent* — the prescriptive fix for every pitfall, plus a ready-to-use kickoff prompt. |
 
