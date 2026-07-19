@@ -12,5 +12,5 @@ variable "make_public" {
     change with zero cloud credentials.
   EOT
   type    = bool
-  default = true # E2E demo: flip bucket public to trigger the OPA plan policy DENY
+  default = false # fixed: bucket stays private, policy now passes
 }
