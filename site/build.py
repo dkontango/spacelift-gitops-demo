@@ -294,7 +294,8 @@ INDEX_BODY = """
 <section class="lp-section lp-alt" id="contact">
   <div class="lp-narrow">
     <h2 class="lp-h2">Contact us</h2>
-    <p class="lp-lede">Questions about this demo, or about running Spacelift for your own end-to-end CI/CD? Drop your email and we'll send a confirmation and follow up. The form validates your address and a small self-hosted service relays a real email through our own SMTP — the same kind of policy-gated plumbing this demo is about.</p>
+    <p class="lp-lede">Questions about this demo, or about running Spacelift for your own end-to-end CI/CD? Drop your email and we'll send a confirmation and follow up.</p>
+    <p class="lp-fine">Fittingly, the contact flow is itself GitHub-native: submitting opens a prefilled GitHub <em>issue</em> — no credential in this page — and a GitHub Actions workflow reads our SMTP secret from <strong>Actions Secrets</strong> and sends the email, then closes the issue. Static site → GitHub → Actions (secret stays server-side) → real email: the same secrets-never-in-the-client pattern this whole demo is about.</p>
   </div>
 
 <form id="contact-form" class="contact-form" novalidate>
@@ -320,19 +321,22 @@ INDEX_BODY = """
 
 <script>
 (function(){
-  // Public endpoint of the self-hosted Go contact-service (SMTP relay behind it).
-  var CONTACT_ENDPOINT = "__CONTACT_ENDPOINT__";
+  // GitHub-native contact: the form opens a prefilled Issue (labeled "contact")
+  // in the repo. A GitHub Actions workflow then reads the SMTP secret from
+  // Actions Secrets and emails the submitter + the team — no server of ours and
+  // no credential in this page. Anonymous fallback: a mailto: to the same inbox.
+  var ISSUE_BASE = "https://github.com/dkontango/spacelift-gitops-demo/issues/new";
+  var ADMIN_MAILTO = "admin@kontango.us";
   var form = document.getElementById('contact-form');
   if (!form) return;
   var emailEl = document.getElementById('cf-email');
   var emailErr = document.getElementById('cf-email-err');
   var statusEl = document.getElementById('cf-status');
   var btn = document.getElementById('cf-submit');
-  // Same practical format the server uses, so client + server agree.
   var RE = /^[A-Za-z0-9._%+\\-]+@[A-Za-z0-9.\\-]+\\.[A-Za-z]{2,}$/;
 
   function validEmail(v){ return v.length <= 254 && RE.test(v); }
-  function setStatus(msg, kind){ statusEl.textContent = msg; statusEl.className = 'cf-status' + (kind ? ' cf-'+kind : ''); }
+  function setStatus(html, kind){ statusEl.innerHTML = html; statusEl.className = 'cf-status' + (kind ? ' cf-'+kind : ''); }
 
   emailEl.addEventListener('input', function(){
     if (!emailEl.value || validEmail(emailEl.value.trim())) { emailErr.hidden = true; emailEl.classList.remove('cf-invalid'); }
@@ -342,23 +346,26 @@ INDEX_BODY = """
     e.preventDefault();
     var email = emailEl.value.trim();
     if (!validEmail(email)) { emailErr.hidden = false; emailEl.classList.add('cf-invalid'); emailEl.focus(); return; }
-    if (CONTACT_ENDPOINT.indexOf('__') === 0) { setStatus('Contact endpoint is not configured yet.', 'err'); return; }
-    btn.disabled = true; setStatus('Sending…', '');
-    fetch(CONTACT_ENDPOINT, {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({
-        email: email,
-        name: document.getElementById('cf-name').value.trim(),
-        message: document.getElementById('cf-message').value.trim(),
-        website: document.getElementById('cf-website').value
-      })
-    }).then(function(r){ return r.json().then(function(j){ return {ok:r.ok, j:j}; }); })
-      .then(function(res){
-        if (res.ok) { form.reset(); setStatus(res.j.message || 'Thanks — a confirmation email is on its way.', 'ok'); }
-        else { setStatus(res.j.error || 'Something went wrong. Please try again.', 'err'); }
-      })
-      .catch(function(){ setStatus('Couldn’t reach the contact service right now — please try again shortly or email us directly.', 'err'); })
-      .finally(function(){ btn.disabled = false; });
+    if (document.getElementById('cf-website').value) { return; } // honeypot
+    var name = document.getElementById('cf-name').value.trim() || '(not given)';
+    var message = document.getElementById('cf-message').value.trim() || '(no message)';
+
+    // Body uses "Field: value" lines the mailer workflow parses.
+    var body = "Email: " + email + "\\nName: " + name + "\\n\\nMessage:\\n" + message +
+               "\\n\\n---\\n_Submitted from the Spacelift GitOps demo site. A GitHub Actions " +
+               "workflow will email a confirmation and close this issue automatically._";
+    var url = ISSUE_BASE +
+      "?title=" + encodeURIComponent("Contact: " + email) +
+      "&labels=" + encodeURIComponent("contact") +
+      "&body=" + encodeURIComponent(body);
+
+    window.open(url, "_blank", "noopener");
+    var mailto = "mailto:" + ADMIN_MAILTO +
+      "?subject=" + encodeURIComponent("Contact from the Spacelift GitOps demo") +
+      "&body=" + encodeURIComponent("From: " + name + " <" + email + ">\\n\\n" + message);
+    setStatus("Opening GitHub to submit your message — click <strong>Submit new issue</strong> and " +
+      "we'll email a confirmation to <strong>" + email + "</strong> automatically. " +
+      "Not on GitHub? <a href=\\"" + mailto + "\\">Email us directly</a> instead.", 'ok');
   });
 })();
 </script>
@@ -530,6 +537,9 @@ def build():
     for label, fn, src in PAGES:
         landing = src is None
         if landing:
+            # Contact form is GitHub-native (opens an Issue → Actions mailer);
+            # the old __CONTACT_ENDPOINT__ placeholder is gone but replace() is
+            # kept as a harmless no-op in case the self-hosted path is restored.
             body = INDEX_BODY.replace("__CONTACT_ENDPOINT__", CONTACT_ENDPOINT)
             title = "Spacelift GitOps Demo — PR previews, OPA guardrails, keyless AWS"
         elif src == "WIZARD":

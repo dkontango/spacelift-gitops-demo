@@ -1,0 +1,133 @@
+# Contact-form mailer.
+#
+# The static site's contact form opens a prefilled GitHub Issue (labeled
+# "contact") — no token or secret in the page. This workflow fires on that
+# issue, reads the submitter's email/name/message from the issue body, sends a
+# thank-you to the submitter plus a copy to admin@kontango.us via the Purelymail
+# SMTP relay (credentials from Actions Secrets — never in the page), then labels
+# and closes the issue.
+#
+# This is the "leverage secrets from GitHub" path: GitHub Pages (static) →
+# GitHub Issue (no secret) → GitHub Actions (holds the SMTP secret) → real email.
+name: Contact form mailer
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  issues: write   # to comment, label, and close the issue
+
+jobs:
+  mail:
+    # only handle contact-form issues
+    if: contains(join(github.event.issue.labels.*.name, ','), 'contact')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send emails and close the issue
+        env:
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          FROM_ADDR: no-reply@kontango.io
+          FROM_NAME: "Kontango — Spacelift GitOps Demo"
+          ADMIN_ADDR: admin@kontango.us
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_USER: ${{ github.event.issue.user.login }}
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          python3 - <<'PY'
+          import os, re, json, smtplib, subprocess, sys
+          from email.message import EmailMessage
+          from email.headerregistry import Address
+
+          body = os.environ.get("ISSUE_BODY", "") or ""
+          issue = os.environ["ISSUE_NUMBER"]
+          repo = os.environ["REPO"]
+
+          # Parse the "Field: value" lines the issue template produces.
+          def field(name, default=""):
+              m = re.search(r"(?im)^\s*%s\s*[:*]*\s*(.+?)\s*$" % re.escape(name), body)
+              return (m.group(1).strip() if m else default)
+
+          # GitHub issue-form bodies render as "### Label\n\nvalue"; handle both.
+          def section(label):
+              m = re.search(r"(?is)###\s*%s\s*\n+(.*?)(?:\n###|\Z)" % re.escape(label), body)
+              return (m.group(1).strip() if m else "")
+
+          def clean(v):
+              # GitHub issue forms insert "_No response_" for empty optional fields.
+              return "" if v.strip().lower() in ("_no response_", "no response") else v.strip()
+
+          email = clean(section("Email") or field("Email"))
+          name = clean(section("Name") or field("Name")) or "there"
+          message = clean(section("Message") or field("Message")) or "(no message provided)"
+
+          EMAIL_RE = re.compile(r"^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$")
+          valid = bool(email) and len(email) <= 254 and EMAIL_RE.match(email)
+
+          def gh(*args):
+              subprocess.run(["gh", *args], check=False)
+
+          if not valid:
+              gh("issue","comment",issue,"--repo",repo,"--body",
+                 "⚠️ Couldn't read a valid email from this submission, so no confirmation was sent.")
+              gh("issue","edit",issue,"--repo",repo,"--add-label","invalid")
+              gh("issue","close",issue,"--repo",repo)
+              print("no valid email; skipped send")
+              sys.exit(0)
+
+          host = os.environ["SMTP_HOST"]; port = int(os.environ["SMTP_PORT"])
+          user = os.environ["SMTP_USER"]; pw = os.environ["SMTP_PASSWORD"]
+          from_addr = os.environ["FROM_ADDR"]; from_name = os.environ["FROM_NAME"]
+          admin = os.environ["ADMIN_ADDR"]
+
+          def send(to, subject, text, reply_to=None):
+              msg = EmailMessage()
+              msg["From"] = f"{from_name} <{from_addr}>"
+              msg["To"] = to
+              msg["Subject"] = subject
+              if reply_to:
+                  msg["Reply-To"] = reply_to
+              msg.set_content(text)
+              with smtplib.SMTP(host, port, timeout=30) as s:
+                  s.starttls()
+                  s.login(user, pw)
+                  s.send_message(msg)
+
+          thank_you = (
+              f"Hi {name},\n\n"
+              "Thanks for reaching out about the Spacelift GitOps demo. This confirms we\n"
+              "received your message. It was handled entirely by GitHub — your submission\n"
+              "opened an issue, and a GitHub Actions workflow (holding our SMTP secret in\n"
+              "Actions Secrets) sent this email. No server of ours, no credentials in the\n"
+              "page — the same policy-gated, secrets-stay-server-side pattern the demo is\n"
+              "about.\n\n"
+              "We'll follow up shortly.\n\n"
+              "— The Kontango team\n"
+          )
+          admin_copy = (
+              "New contact submission from the Spacelift GitOps demo site "
+              f"(via GitHub issue #{issue}).\n\n"
+              f"Name:    {name}\n"
+              f"Email:   {email}\n\n"
+              f"Message:\n{message}\n"
+          )
+
+          send(email, "Thanks for reaching out — Spacelift GitOps Demo", thank_you)
+          print(f"thank-you sent to {email}")
+          try:
+              send(admin, f"New contact submission — {email}", admin_copy, reply_to=email)
+              print(f"admin copy sent to {admin}")
+          except Exception as e:
+              print(f"admin copy failed: {e}")
+
+          gh("issue","comment",issue,"--repo",repo,"--body",
+             f"✅ Confirmation email sent to the submitter and a copy to the team. Thanks, @{os.environ.get('ISSUE_USER','')}!")
+          gh("issue","edit",issue,"--repo",repo,"--add-label","handled")
+          gh("issue","close",issue,"--repo",repo)
+          print("done")
+          PY
