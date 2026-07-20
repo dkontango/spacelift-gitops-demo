@@ -184,48 +184,118 @@ TEMPLATE = """<!doctype html>
 </main></div></body></html>"""
 
 
+# Full-width landing shell: a top nav bar instead of a docs sidebar, so the
+# home page reads like a landing page while the guide pages keep the sidebar.
+LANDING_TEMPLATE = """<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{title}</title>
+<meta name="description" content="A hands-on Spacelift GitOps demo: pull-request previews, OPA policy guardrails, and keyless AWS deploys with OpenTofu — driven from an on-prem Forgejo repo mirrored to GitHub.">
+<link rel="stylesheet" href="assets/style.css">
+</head><body class="landing">
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="brand" href="index.html">Spacelift <span>GitOps</span> Demo</a>
+    <nav class="topnav">
+      <a href="#why">Why Spacelift</a>
+      <a href="#how">How it works</a>
+      <a href="by-hand.html">Guide</a>
+      <a href="walkthrough.html">Walkthrough</a>
+      <a href="#contact" class="topnav-cta">Contact</a>
+    </nav>
+  </div>
+</header>
+<main class="landing-main">
+{body}
+</main>
+<footer class="landing-footer">
+  <div class="lf-inner">
+    <div>
+      <strong>Spacelift GitOps Demo</strong><br>
+      <span class="lf-muted">Deployed by the pipeline it documents — Spacelift → S3, and GitHub Pages.</span>
+    </div>
+    <div class="lf-links">
+      <a href="https://spacelift.io/" target="_blank" rel="noopener">spacelift.io</a>
+      <a href="https://github.com/dkontango/spacelift-gitops-demo" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://git.konoss.org/kadmin/spacelift-gitops-demo" target="_blank" rel="noopener">Forgejo (canonical)</a>
+    </div>
+  </div>
+</footer>
+</body></html>"""
+
+
 INDEX_BODY = """
-<div class="hero">
-  <h1>Spacelift GitOps Onboarding Guide</h1>
-  <p>A complete, click-by-click walkthrough of the Spacelift GitOps workflow — with two tracks: do it <strong>by hand</strong>, or let an <strong>AI agent</strong> drive. This very site was deployed by the pipeline it documents.</p>
-</div>
+<section class="lp-hero">
+  <div class="lp-hero-inner">
+    <span class="lp-eyebrow">OpenTofu · AWS · OPA · Keyless OIDC</span>
+    <h1>Ship infrastructure with guardrails, not guesswork.</h1>
+    <p class="lp-sub">A working, end-to-end <strong>Spacelift GitOps</strong> demo: every pull request gets a plan preview, an <strong>OPA policy</strong> blocks risky changes before they merge, and deploys to AWS run <strong>keyless</strong> — driven from an on-prem Forgejo repo mirrored to GitHub.</p>
+    <div class="lp-cta-row">
+      <a class="lp-btn lp-btn-primary" href="#contact">Get in touch</a>
+      <a class="lp-btn lp-btn-ghost" href="walkthrough.html">See the 17-step walkthrough →</a>
+    </div>
+    <div class="lp-pipeline" aria-label="pipeline">
+      <span>Forgejo</span><i>→</i><span>GitHub</span><i>→</i><span>Spacelift preview</span><i>→</i><span>OPA policy</span><i>→</i><span>AWS deploy</span>
+    </div>
+  </div>
+</section>
 
-<div class="cards">
-  <div class="card"><h3><a href="by-hand.html">Onboarding — By Hand</a></h3><p>Full click-by-click for a human. Exact Spacelift names, where the Foundations tutorial lives, and the session &amp; naming callouts.</p></div>
-  <div class="card"><h3><a href="with-ai.html">Onboarding — With AI</a></h3><p>Let an agent drive. Two sub-modes: <span class="tag">Playwright</span> (agent clicks the UI) vs <span class="tag">no-Playwright</span> (agent assists, you click).</p></div>
-  <div class="card"><h3><a href="agents.html">AI Agent Context</a></h3><p>The <code>AGENTS.md</code> file you point your agent at — tuple rules, exact naming, session constraint, step-by-step.</p></div>
-  <div class="card"><h3><a href="troubleshooting.html">Troubleshooting</a></h3><p>The written deliverable: fixing <code>no valid credential sources for Terraform AWS Provider</code>.</p></div>
-</div>
+<section class="lp-section">
+  <div class="lp-benefits">
+    <div class="lp-benefit"><div class="lp-ic">🔀</div><h3>PR-driven previews</h3><p>Open a pull request and Spacelift posts a plan as a status check — see exactly what will change before anything is applied.</p></div>
+    <div class="lp-benefit"><div class="lp-ic">🛡️</div><h3>Policy as code</h3><p>A Rego <code>plan-block-public-s3</code> guardrail denies a public S3 bucket in the preview. The bad PR goes red; fix it and it turns green.</p></div>
+    <div class="lp-benefit"><div class="lp-ic">🔑</div><h3>Keyless AWS</h3><p>Deploys authenticate via OIDC / AssumeRole. No static credentials stored in Spacelift, in a Context, or anywhere else.</p></div>
+    <div class="lp-benefit"><div class="lp-ic">🧰</div><h3>Tool-agnostic</h3><p>The same loop works with Terraform, OpenTofu, Pulumi, CloudFormation, or Kubernetes — standardize the workflow, not the tool.</p></div>
+  </div>
+</section>
 
-<h2>Two things that cause the most confusion</h2>
-<blockquote>
-<p><strong>⚠️ One Spacelift session at a time.</strong> Spacelift allows only one active session per user (the login UI shows "Multi-session disabled"). Logging in via CLI or a second browser invalidates your web session. If an AI agent drives via its own browser, it will log you out — decide who holds the session before you start.</p>
-</blockquote>
-<blockquote>
-<p><strong>⚠️ Names are opaque and specific.</strong> Spacelift auto-generates stack/integration names like <code>Prime Apollo 45</code> and <code>Viking Terminal AWS</code> — they tell you nothing about the repo or role. Always track the full tuple: <strong>(stack, repository, project root, IAM role ARN, integration name)</strong>. The tutorial code uses exact literals: <code>random_pet</code>, <code>aws_s3_bucket.orbit_storage</code>, <code>bucket_prefix = "orbit-storage-"</code>, role <code>spacelift-orbit-labs-role</code>.</p>
-</blockquote>
+<section class="lp-section lp-alt" id="why">
+  <div class="lp-narrow">
+    <h2 class="lp-h2">Why a vendor-agnostic tool for end-to-end CI/CD</h2>
+    <p class="lp-lede">This demo happens to use OpenTofu and AWS — but the point of <a href="https://spacelift.io/" target="_blank" rel="noopener">Spacelift</a> is that it locks you to neither. Traditional pipelines were built for application code; infrastructure needs a system that understands <em>state</em>. In Spacelift's words: <a href="https://spacelift.io/" target="_blank" rel="noopener">"Traditional CI/CD doesn't work for infrastructure"</a> — you want <a href="https://spacelift.io/" target="_blank" rel="noopener">"workflows that understand state, not hacked-together jobs and scripts."</a></p>
+  </div>
+  <div class="lp-cards">
+    <div class="lp-card"><h3>One orchestrator, every tool</h3><p>Spacelift advertises <a href="https://spacelift.io/" target="_blank" rel="noopener">"first-class support for Terraform, OpenTofu, CloudFormation, Pulumi, and Kubernetes"</a> (plus Terragrunt and Ansible). The PR-preview → policy → deploy loop shown here works whichever IaC you standardize on — no rewrite when the tool changes.</p></div>
+    <div class="lp-card"><h3>Understands your infrastructure</h3><p><a href="https://spacelift.io/" target="_blank" rel="noopener">"Spacelift understands your stacks, dependencies, state, and resources, giving you one place to manage every part of your infrastructure pipeline."</a> That's the difference between orchestration and a pile of CI jobs.</p></div>
+    <div class="lp-card"><h3>Policy as code, across the board</h3><p><a href="https://spacelift.io/" target="_blank" rel="noopener">"Define OPA-based policies for plans, approvals, notifications, and security controls."</a> The <code>plan-block-public-s3</code> guardrail here is exactly that — a Rego Plan policy that blocks a risky change in the PR preview.</p></div>
+    <div class="lp-card"><h3>Speed <em>and</em> control</h3><p>Spacelift's own framing: <a href="https://spacelift.io/" target="_blank" rel="noopener">"The speed developers demand. The control platform teams require."</a> Self-service <a href="https://spacelift.io/" target="_blank" rel="noopener">"Golden Paths via Blueprints, not Confluence pages"</a>, with <a href="https://spacelift.io/" target="_blank" rel="noopener">"guardrails enforced by policy as code."</a></p></div>
+  </div>
+  <div class="lp-narrow">
+    <blockquote class="lp-quote"><a href="https://spacelift.io/" target="_blank" rel="noopener">"Ship infrastructure as fast as developers code"</a> — <a href="https://spacelift.io/" target="_blank" rel="noopener">"Spacelift fuses AI, IaC, and GitOps pipelines, so developers ship fast, and platform teams stay in control."</a></blockquote>
+    <p class="lp-fine">Quoted phrases are Spacelift's own marketing language, from <a href="https://spacelift.io/" target="_blank" rel="noopener">spacelift.io</a> and its <a href="https://spacelift.io/pricing" target="_blank" rel="noopener">pricing page</a>, cited to keep this value proposition consistent with the vendor's. Drift detection and stack dependencies referenced in the demo are Starter+ features per that pricing page.</p>
+  </div>
+</section>
 
-<h2>The workflow, in one line</h2>
-<p>Push <strong>only to Forgejo</strong> → the push-mirror propagates to GitHub → Spacelift previews every PR → an <strong>OPA Plan policy</strong> blocks a public S3 bucket in the preview → merge deploys to AWS via <strong>keyless OIDC</strong>.</p>
+<section class="lp-section" id="how">
+  <div class="lp-narrow">
+    <h2 class="lp-h2">How it works</h2>
+    <p class="lp-lede">The whole loop, proven live in this demo — from a push to an on-prem Forgejo repo all the way to a real S3 bucket in AWS.</p>
+  </div>
+  <ol class="lp-steps">
+    <li><span class="lp-step-n">1</span><div><strong>Push only to Forgejo.</strong> A push-mirror (<code>sync_on_commit</code>) propagates to GitHub automatically.</div></li>
+    <li><span class="lp-step-n">2</span><div><strong>Open a PR on GitHub.</strong> Spacelift previews the plan and posts it as a status check.</div></li>
+    <li><span class="lp-step-n">3</span><div><strong>The policy guards it.</strong> An OPA Plan policy denies a public S3 bucket — the check goes red on the PR.</div></li>
+    <li><span class="lp-step-n">4</span><div><strong>Fix, merge, deploy.</strong> Push the fix → the check passes → merge → Spacelift deploys to AWS via keyless OIDC.</div></li>
+  </ol>
+  <div class="lp-video">
+    <video controls preload="metadata" poster="assets/steps/step-00-architecture.png">
+      <source src="assets/workflow.mp4" type="video/mp4">
+      Your browser doesn't support embedded video — <a href="https://github.com/dkontango/spacelift-gitops-demo/blob/main/docs/recording/workflow.mp4">download the walkthrough</a>.
+    </video>
+    <p class="lp-fine">A 68-second screen recording of all 17 steps, captured live from the real AWS, Spacelift, and GitHub consoles (account IDs and ARNs redacted).</p>
+  </div>
+  <div class="lp-narrow lp-guide-links">
+    <a class="lp-btn lp-btn-ghost" href="by-hand.html">Onboarding — by hand</a>
+    <a class="lp-btn lp-btn-ghost" href="with-ai.html">Onboarding — with an AI agent</a>
+    <a class="lp-btn lp-btn-ghost" href="troubleshooting.html">Troubleshooting: AWS creds</a>
+  </div>
+</section>
 
-<h2 id="why-spacelift">Why a vendor-agnostic tool for end-to-end CI/CD</h2>
-<p>The demo happens to use OpenTofu and AWS, but the reason to reach for <a href="https://spacelift.io/" target="_blank" rel="noopener">Spacelift</a> is that it doesn't lock you to either. Traditional pipelines were built for application code; infrastructure needs a system that understands <em>state</em>. As Spacelift puts it, <a href="https://spacelift.io/" target="_blank" rel="noopener">"Traditional CI/CD doesn't work for infrastructure"</a> — you want <a href="https://spacelift.io/" target="_blank" rel="noopener">"workflows that understand state, not hacked-together jobs and scripts."</a></p>
-
-<div class="cards">
-  <div class="card"><h3>One orchestrator, every tool</h3><p>Spacelift advertises <a href="https://spacelift.io/" target="_blank" rel="noopener">"first-class support for Terraform, OpenTofu, CloudFormation, Pulumi, and Kubernetes"</a> (plus Terragrunt and Ansible). The same PR-preview → policy → deploy loop shown here works whichever IaC you standardize on — no rewrite when the tool changes.</p></div>
-  <div class="card"><h3>Understands your infrastructure</h3><p><a href="https://spacelift.io/" target="_blank" rel="noopener">"Spacelift understands your stacks, dependencies, state, and resources, giving you one place to manage every part of your infrastructure pipeline."</a> That's the difference between orchestration and a pile of CI jobs.</p></div>
-  <div class="card"><h3>Policy as code, across the board</h3><p><a href="https://spacelift.io/" target="_blank" rel="noopener">"Define OPA-based policies for plans, approvals, notifications, and security controls."</a> The <code>plan-block-public-s3</code> guardrail in this demo is exactly that — a Rego Plan policy that blocks a risky change in the PR preview.</p></div>
-  <div class="card"><h3>Speed <em>and</em> control</h3><p>Spacelift's own framing: <a href="https://spacelift.io/" target="_blank" rel="noopener">"The speed developers demand. The control platform teams require."</a> Self-service <a href="https://spacelift.io/" target="_blank" rel="noopener">"Golden Paths via Blueprints, not Confluence pages"</a>, with <a href="https://spacelift.io/" target="_blank" rel="noopener">"guardrails enforced by policy as code."</a></p></div>
-</div>
-
-<blockquote>
-<p><strong>The headline</strong>, in Spacelift's words: <a href="https://spacelift.io/" target="_blank" rel="noopener">"Ship infrastructure as fast as developers code"</a> — <a href="https://spacelift.io/" target="_blank" rel="noopener">"Spacelift fuses AI, IaC, and GitOps pipelines, so developers ship fast, and platform teams stay in control."</a></p>
-</blockquote>
-
-<p style="color:var(--muted); font-size:14px;">Quoted phrases above are Spacelift's own marketing language, from <a href="https://spacelift.io/" target="_blank" rel="noopener">spacelift.io</a> and its <a href="https://spacelift.io/pricing" target="_blank" rel="noopener">pricing page</a>, cited here to keep this value proposition consistent with the vendor's. Drift detection and stack dependencies referenced in the demo are Starter+ features per that pricing page.</p>
-
-<h2 id="contact">Contact us</h2>
-<p>Questions about this demo, or about running Spacelift for your own end-to-end CI/CD? Drop your email and we'll send a confirmation and follow up. The form validates your address and a small self-hosted service relays a real email through our own SMTP — the same kind of policy-gated, end-to-end plumbing this demo is about.</p>
+<section class="lp-section lp-alt" id="contact">
+  <div class="lp-narrow">
+    <h2 class="lp-h2">Contact us</h2>
+    <p class="lp-lede">Questions about this demo, or about running Spacelift for your own end-to-end CI/CD? Drop your email and we'll send a confirmation and follow up. The form validates your address and a small self-hosted service relays a real email through our own SMTP — the same kind of policy-gated plumbing this demo is about.</p>
+  </div>
 
 <form id="contact-form" class="contact-form" novalidate>
   <div class="cf-row">
@@ -287,11 +357,12 @@ INDEX_BODY = """
         if (res.ok) { form.reset(); setStatus(res.j.message || 'Thanks — a confirmation email is on its way.', 'ok'); }
         else { setStatus(res.j.error || 'Something went wrong. Please try again.', 'err'); }
       })
-      .catch(function(){ setStatus('Network error — could not reach the contact service.', 'err'); })
+      .catch(function(){ setStatus('Couldn’t reach the contact service right now — please try again shortly or email us directly.', 'err'); })
       .finally(function(){ btn.disabled = false; });
   });
 })();
 </script>
+</section>
 """
 
 
@@ -448,16 +519,29 @@ def inline_text(s):
 
 
 def build():
+    # Ship the walkthrough video with the site so it's same-origin on Pages/S3
+    # (Pages publishes only site/). Copy it into site/assets/ if present.
+    import shutil
+    vid = os.path.join(ROOT, "docs/recording/workflow.mp4")
+    if os.path.exists(vid):
+        shutil.copyfile(vid, os.path.join(SITE, "assets", "workflow.mp4"))
+        print("copied workflow.mp4 -> site/assets/")
+
     for label, fn, src in PAGES:
-        if src is None:
-            body = INDEX_BODY.replace("__CONTACT_ENDPOINT__", CONTACT_ENDPOINT); title = "Overview"
+        landing = src is None
+        if landing:
+            body = INDEX_BODY.replace("__CONTACT_ENDPOINT__", CONTACT_ENDPOINT)
+            title = "Spacelift GitOps Demo — PR previews, OPA guardrails, keyless AWS"
         elif src == "WIZARD":
             body = wizard_body(); title = "Illustrated Walkthrough"
         else:
             with open(os.path.join(ROOT, src), encoding="utf-8") as f:
                 md = f.read()
             body = md_to_html(md); title = label
-        out_html = TEMPLATE.format(title=html.escape(title), nav=nav_html(fn), body=body)
+        if landing:
+            out_html = LANDING_TEMPLATE.format(title=html.escape(title), body=body)
+        else:
+            out_html = TEMPLATE.format(title=html.escape(title), nav=nav_html(fn), body=body)
         with open(os.path.join(SITE, fn), "w", encoding="utf-8") as f:
             f.write(out_html)
         print("wrote", fn)
