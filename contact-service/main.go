@@ -52,11 +52,12 @@ type smtpCreds struct {
 }
 
 type server struct {
-	creds    smtpCreds
-	fromAddr string
-	fromName string
-	allowed  string
-	limiter  *rateLimiter
+	creds     smtpCreds
+	fromAddr  string
+	fromName  string
+	adminAddr string // gets a separate "new submission" copy; empty disables it
+	allowed   string
+	limiter   *rateLimiter
 }
 
 type contactReq struct {
@@ -69,10 +70,11 @@ type contactReq struct {
 func main() {
 	listen := env("LISTEN_ADDR", ":8080")
 	s := &server{
-		fromAddr: env("FROM_ADDR", "no-reply@kontango.io"),
-		fromName: env("FROM_NAME", "Kontango — Spacelift GitOps Demo"),
-		allowed:  env("ALLOWED_ORIGIN", "*"),
-		limiter:  newRateLimiter(5, time.Minute), // 5 submits/min/IP
+		fromAddr:  env("FROM_ADDR", "no-reply@kontango.io"),
+		fromName:  env("FROM_NAME", "Kontango — Spacelift GitOps Demo"),
+		adminAddr: env("ADMIN_ADDR", "admin@kontango.us"),
+		allowed:   env("ALLOWED_ORIGIN", "*"),
+		limiter:   newRateLimiter(5, time.Minute), // 5 submits/min/IP
 	}
 
 	creds, err := loadSMTPFromBao()
@@ -80,8 +82,8 @@ func main() {
 		log.Fatalf("failed to load SMTP creds from Bao: %v", err)
 	}
 	s.creds = creds
-	log.Printf("SMTP relay %s:%s as %s; from=%s; origin=%s",
-		creds.Host, creds.Port, creds.User, s.fromAddr, s.allowed)
+	log.Printf("SMTP relay %s:%s as %s; from=%s; admin=%s; origin=%s",
+		creds.Host, creds.Port, creds.User, s.fromAddr, adminOrNone(s.adminAddr), s.allowed)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
@@ -151,6 +153,18 @@ func (s *server) handleContact(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	log.Printf("thank-you sent to %s", email)
+
+	// Best-effort admin notification: a separate email so the submitter never
+	// sees the admin address. A failure here doesn't fail the user's request —
+	// they already got their confirmation.
+	if s.adminAddr != "" {
+		if err := s.sendAdminNotice(email, name, req.Message); err != nil {
+			log.Printf("admin notice to %s failed: %v", s.adminAddr, err)
+		} else {
+			log.Printf("admin notice sent to %s", s.adminAddr)
+		}
+	}
+
 	writeJSON(w, http.StatusOK, map[string]string{
 		"status":  "sent",
 		"message": "Thanks — a confirmation email is on its way to " + email + ".",
@@ -182,13 +196,38 @@ func validateEmail(email string) error {
 }
 
 func (s *server) sendThankYou(to, name string) error {
-	subject := "Thanks for reaching out — Spacelift GitOps Demo"
-	body := thankYouBody(name)
+	return s.sendMail(to, "Thanks for reaching out — Spacelift GitOps Demo", thankYouBody(name), "")
+}
 
+// sendAdminNotice emails admin a separate "new submission" copy including the
+// submitter's name, address, and message. Reply-To is set to the submitter so
+// admin can reply directly. The submitter never sees the admin address.
+func (s *server) sendAdminNotice(submitterEmail, submitterName, message string) error {
+	if message == "" {
+		message = "(no message provided)"
+	}
+	body := strings.Join([]string{
+		"New contact submission from the Spacelift GitOps demo site.",
+		"",
+		"Name:    " + submitterName,
+		"Email:   " + submitterEmail,
+		"",
+		"Message:",
+		message,
+	}, "\r\n")
+	return s.sendMail(s.adminAddr, "New contact submission — "+submitterEmail, body, submitterEmail)
+}
+
+// sendMail builds a UTF-8 text email and relays it. replyTo, if set, becomes the
+// Reply-To header (used so admin can reply straight to the submitter).
+func (s *server) sendMail(to, subject, body, replyTo string) error {
 	from := fmt.Sprintf("%s <%s>", mimeEncode(s.fromName), s.fromAddr)
 	var msg bytes.Buffer
 	fmt.Fprintf(&msg, "From: %s\r\n", from)
 	fmt.Fprintf(&msg, "To: %s\r\n", to)
+	if replyTo != "" {
+		fmt.Fprintf(&msg, "Reply-To: %s\r\n", replyTo)
+	}
 	fmt.Fprintf(&msg, "Subject: %s\r\n", mimeEncode(subject))
 	fmt.Fprintf(&msg, "MIME-Version: 1.0\r\n")
 	fmt.Fprintf(&msg, "Content-Type: text/plain; charset=\"utf-8\"\r\n")
@@ -200,6 +239,13 @@ func (s *server) sendThankYou(to, name string) error {
 	// net/smtp.SendMail negotiates STARTTLS on :587 automatically when the
 	// server advertises it (Purelymail does).
 	return smtp.SendMail(addr, auth, s.fromAddr, []string{to}, msg.Bytes())
+}
+
+func adminOrNone(a string) string {
+	if a == "" {
+		return "(disabled)"
+	}
+	return a
 }
 
 func thankYouBody(name string) string {
