@@ -12,5 +12,5 @@ variable "make_public" {
     change with zero cloud credentials.
   EOT
   type    = bool
-  default = true # re-verify: flip public to trigger Spacelift + OPA DENY
+  default = false # fixed: bucket stays private, policy now passes
 }
